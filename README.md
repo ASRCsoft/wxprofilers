@@ -1,4 +1,4 @@
-# likit
+# Likit
 Python package with utilities for Lidar and other weather profile instruments
 
 
