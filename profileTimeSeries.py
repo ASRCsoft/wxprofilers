@@ -2,7 +2,7 @@
 This file uses the dataframe with time index
 Main use is for plotting heatmaps using matplotlib
 Includes the core functions handling the data
-for plotting and agrigating by time
+for plotting and aggregating by time
 '''
 import pandas as pd
 import matplotlib.pyplot as plt
