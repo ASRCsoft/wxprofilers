@@ -10,6 +10,12 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 
 class ProfileTimeSeries(pd.DataFrame):
+    def __init__(self, df):
+        # check that the index is datetimes, then init as a data frame
+        if (not isinstance(df.index, pd.tseries.index.DatetimeIndex)):
+            raise ValueError('Data frame must be indexed by Datetimes')
+        pd.DataFrame.__init__(self, df)
+
     def plot_heatmap(self):
         xs0 = self.index
         mean_interval = sum((xs0[1:] - xs0[0:-1]).seconds) / (len(xs0) - 1)
