@@ -3,23 +3,25 @@ import pandas as pd
 import profileInstrument as pri
 
 class Lidar(pri.ProfileInstrument):
-    def __init__(self, tsdict,  profiles=None, location=None):
+    def __init__(self, tsdict,  profiles=None, location=None, scan=None, wind=None):
+        # tsdict should be a MultiIndex DataFrame (or ProfileTimeSeries)
         self.data = tsdict
         self.profiles = profiles
+        self.scan = scan
         self.location = location
         self.wind = None
 
-    def estimate_wind(self, method='Leosphere', seconds=15):
+    def estimate_wind(self, rws='RWS [m/s]', method='Leosphere', seconds=15):
         if method=='Leosphere':
-            if self.data['status'] is None or self.data['rws'] is None or
-                self.profiles is None or 'LOS ID' not in self.profiles.columns:
+            if (self.data['status'] is None or self.data['rws'] is None or
+                        self.profiles is None or 'LOS ID' not in self.profiles.columns):
                 # raise an error
                 pass
             x = pd.DataFrame(index=self.profiles.index, columns=self.data['rws'].columns)
             y = pd.DataFrame(index=self.profiles.index, columns=self.data['rws'].columns)
             z = pd.DataFrame(index=self.profiles.index, columns=self.data['rws'].columns)
             temp_prof = self.profiles[bool(self.data['status'][:,0]),'LOS ID']
-            temp_rws = self.profiles[bool(self.data['rws'][:,0]),0]
+            temp_rws = self.profiles[bool(self.data[rws][:,0]),0]
             nprofiles = len(temp_prof)
             los0 = np.nan
             los2 = np.nan
