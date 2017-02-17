@@ -49,7 +49,7 @@ def wind_regression(wdf, elevation=75, max_se=1):
     resultsdf = pd.DataFrame(index=colnames, columns=df_columns)
 
     for n in range(ncols):
-        ymat = np.array([wdf.iloc[:, n]]).transpose()
+        ymat = -np.array([wdf.iloc[:, n]]).transpose()
 
         # make sure there are enough lines of sight to get a real measurement of all variables:
         notnan = np.logical_not(np.isnan(ymat[:, 0]))
