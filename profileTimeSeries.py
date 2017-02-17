@@ -27,15 +27,11 @@ class ProfileTimeSeries(pd.DataFrame):
 
     def plot_heatmap(self, ax, **kwargs):
         # fix indices to plot the data with 'nearest' interpolation
-        print(type(self.index))
         index0 = self.index
-        new_index = index0[:-1] + (index0[:-1] - index0[1:]) / 2
+        new_index = index0[:-1] + (index0[1:] - index0[:-1]) / 2
         new_index = new_index.insert(0, index0[0])
-        new_index = new_index.append(pd.Index([index0[-1]]))
-        df = copy.copy(self)
-        df.index = new_index[:-1]
-        df.loc[new_index[-1],:] = np.nan
-        print(type(df.index))
+        df = pd.DataFrame(self.as_matrix(), index = new_index, columns=self.columns, dtype='float')
+        df.loc[index0[-1],:] = np.nan
 
         # set up graph
         start_time = df.index[0]
@@ -43,12 +39,9 @@ class ProfileTimeSeries(pd.DataFrame):
         xs = df.index.map(mdates.date2num)
         ys = df.columns.map(float)
         y2d, x2d = np.meshgrid(ys, xs)
-        #fig1 = plt.figure()
-        #ax = fig1.add_subplot(1, 1, 1)
         ax.set_xlim(start_time, end_time)
-        #im = ax.pcolormesh(x2d, y2d, df, **kwargs)
-        #dfmat = df.as_matrix
-        im = ax.pcolormesh(x2d, y2d, np.ma.masked_where(pd.isnull(df), df), **kwargs)
+        m2 = np.ma.masked_invalid(df)
+        im = ax.pcolormesh(x2d, y2d, m2, **kwargs)
         plt.colorbar(im)
 
     def plot_profile(self, ax, legend=True, **kwargs):

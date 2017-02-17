@@ -1,17 +1,13 @@
 import numpy as np
+import profileTimeSeries as pts
 import matplotlib.dates as mdates
 
 
 class WindProfiles:
-    def __init__(self, x=None, y=None, z=None, xse=None, yse=None, zse=None):
-        self.speed = {}
-        self.standard_error = {}
-        self.speed['x'] = x
-        self.speed['y'] = y
-        self.speed['z'] = z
-        self.standard_error['x'] = xse
-        self.standard_error['y'] = yse
-        self.standard_error['z'] = zse
+    def __init__(self, speed, standard_error=None):
+        self.speed = pts.ProfileTimeSeries(speed)
+        if standard_error is not None:
+            self.standard_error = pts.ProfileTimeSeries(standard_error)
 
 
     def plot_barbs(self, ax):
