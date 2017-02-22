@@ -67,10 +67,10 @@ def wind_regression(wdf, elevation=75, max_se=1):
         results = model.fit()
         coefs = results.params
         se = results.bse
-        if any(se == 0):
-            print("statsmodels says standard error is zero-- that's not right!")
-            print(len(los[notnan].unique()))
-            exit()
+        # if any(se == 0):
+        #     print("statsmodels says standard error is zero-- that's not right!")
+        #     print(len(los[notnan].unique()))
+        #     exit()
         coefs[np.logical_or(se > max_se, np.logical_not(np.isfinite(se)))] = np.nan
         df_data = np.concatenate((coefs, results.bse))
         resultsdf.loc[colnames[n],:] = df_data
