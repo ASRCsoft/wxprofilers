@@ -2,8 +2,11 @@ import xml.etree.ElementTree
 import numpy as np
 import pandas as pd
 import profileTimeSeries as pts
+import profileInstrument as pins
 import lidar
 import math
+import io
+import re
 import statsmodels.api as sm
 
 def lidar_from_csv(rws, scans=None, location=None, scan_id=None):
@@ -30,6 +33,62 @@ def lidar_from_csv(rws, scans=None, location=None, scan_id=None):
         scan = None
 
     return lidar.Lidar(data_dict, profiles, scan=scan)
+
+def mr_from_csv(file, scan='Zenith'):
+    # read file
+    f = open(file, "r")
+    lines = f.readlines()
+    f.close()
+
+    # get the type of each line
+    types = [ int(re.sub(",.*", "", re.sub("^[^,]*,[^,]*,", "", line))) for line in lines ]
+    headers = np.where([ re.search("^Record", line) for line in lines ])
+
+    # organize into csv's
+    csvs = {}
+    for n in np.nditer(headers):
+        acceptable_types = np.array([1, 2, 3, 4])
+        acceptable_types += types[n]
+        is_type = [ types[m] in acceptable_types for m in range(len(types)) ]
+        where_is_type = np.where(is_type)
+        if where_is_type[0].size > 0:
+            csv_lines = [ lines[m] for m in np.nditer(where_is_type) ]
+            csv_lines.insert(0, lines[n])
+            csv_string = ''.join(csv_lines)
+            csv = io.StringIO(csv_string.decode('utf-8'))
+            df = pd.read_csv(csv)
+            csvs[str(types[n])] = df
+
+    # rearrange measurements into multiindex dataframe:
+    # mr_columns = csvs['400'].columns[4:-1].map(float)
+    names = csvs['100']['Title']
+    # iterables = [names, mr_columns]
+    # mult_index = pd.MultiIndex.from_product(iterables, names=['Record Type', 'Range (km)'])
+    # mr_index = pd.to_datetime(csvs['30']['Date/Time'][2:])
+    # mr_data = pts.ProfileTimeSeries(index=mr_index, columns=mult_index, dtype='float')
+
+    # just make it a hash for now. might go back to multiindex dataframe later
+    mr_data = {}
+
+    df400 = csvs['400']
+    df400['Date/Time'] = pd.to_datetime(df400['Date/Time'])
+    for n in range(csvs['100'].shape[0]):
+        name = names[n]
+        is_type = np.logical_and(df400['400'] == csvs['100']['Record Type'][n],
+                                 df400['LV2 Processor'] == scan)
+        df = df400.loc[is_type, df400.columns[4:-1]]
+        df.index = df400.loc[is_type, 'Date/Time']
+        df.columns = df.columns.map(float)
+        #df.index = mr_index
+        mr_data[name] = df
+
+    #print(mr_data['Liquid (g/m^3)'].head())
+    # good enough for now
+    return(pins.ProfileInstrument(mr_data))
+
+
+
+
 
 
 def wind_regression(wdf, elevation=75, max_se=1):

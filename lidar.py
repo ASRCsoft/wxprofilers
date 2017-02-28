@@ -48,9 +48,7 @@ class Lidar(pri.ProfileInstrument):
         xs = -(los2 - los0) / (2 * math.cos(el))
         ys = -(los3 - los1) / (2 * math.cos(el))
         zs = (los0 + los1 + los2 + los3) * .789 / (4 * math.sin(el)) + los4 * .211
-        print(len(zs))
 
-        print('Starting loop...')
         # YAAAAAAAAAAAAAAAAAAAAAAAYYYYYYYYYYYYYYYY it works!!!!!!!!!!
         for col in range(self.data[rws].shape[1]):
             col_indices = np.where(good_indices[1] == col)
