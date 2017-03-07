@@ -8,9 +8,10 @@ import misc
 #import copy
 
 class Lidar(pri.ProfileInstrument):
-    def __init__(self, tsdict,  profiles=None, location=None, scan=None, wind=None):
+    def __init__(self, tsdict,  profiles=None, location=None, scan=None, wind=None, xarray=None):
         # tsdict should be a MultiIndex ProfileTimeSeries
-        self.data = tsdict
+        super(Lidar, self).__init__(tsdict, xarray=xarray)
+        #self.data = tsdict
         self.profiles = profiles
         self.scan = scan
         self.location = location

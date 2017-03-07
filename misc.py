@@ -1,6 +1,8 @@
+# -*- coding: UTF-8 -*-
 import xml.etree.ElementTree
 import numpy as np
 import pandas as pd
+import xarray as xr
 import profileTimeSeries as pts
 import profileInstrument as pins
 import lidar
@@ -32,7 +34,22 @@ def lidar_from_csv(rws, scans=None, location=None, scan_id=None):
     else:
         scan = None
 
-    return lidar.Lidar(data_dict, profiles, scan=scan)
+    # new!
+    profile_vars = ['Timestamp', 'LOS ID', 'Configuration ID', 'Azimuth [°]', 'Elevation [°]']
+    measurement_vars = ['RWS [m/s]', 'DRWS [m/s]', 'CNR [db]', 'Confidence Index [%]', 'Mean Error', 'Status']
+    csv_profs = csv[profile_vars].groupby('Timestamp').agg(lambda x: x.iloc[0])
+    h1 = {}
+    profile_vars = ['LOS ID', 'Configuration ID', 'Azimuth [°]', 'Elevation [°]']
+    for scan_type in profile_vars:
+        h1[scan_type] = ('Timestamp', csv_profs[scan_type])
+    for level in measurement_vars:
+        h1[level] = (['Timestamp', 'Range [m]'], data_dict[level])
+    xarray = xr.Dataset(h1)
+    #self.xarray = xr.Dataset.from_dataframe(tsdict)
+
+    #csv.set_index(['Timestamp', 'Range [m]'], inplace=True)
+    #xarray = xr.Dataset.from_dataframe(tsdict)
+    return lidar.Lidar(data_dict, profiles, scan=scan, xarray=xarray)
 
 def mr_from_csv(file, scan='Zenith'):
     # read file

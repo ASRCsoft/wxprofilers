@@ -1,15 +1,23 @@
 import numpy as np
 import pandas as pd
-import profileTimeSeries as pts
+import xarray as xr
 
-class ProfileInstrument:
-    def __init__(self, tsdict, profiles=None, latitude=None, longitude=None, elevation=None):
+class ProfileInstrument(object):
+    def __init__(self, tsdict, profiles=None, latitude=None, longitude=None, elevation=None, xarray=None):
         self.data = tsdict
         self.profiles=profiles
         self.latitude=latitude
         self.longitude=longitude
         self.elevation=elevation
         self.wind=None
+        self.xarray = xarray
+        # new!
+        # h1 = {}
+        # print(self.data.columns.levels[0])
+        # for level in self.data.columns.levels[0]:
+        #     h1[level] = pd.DataFrame(self.data[level])
+        # self.xarray = xr.Dataset(h1)
+        #self.xarray = xr.Dataset.from_dataframe(tsdict)
 
     def export(self):
         # write a CF-compliant netCDF file containing the profileInstrument data
