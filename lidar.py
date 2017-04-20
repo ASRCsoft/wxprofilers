@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import xarray as xr
 import profileTimeSeries as pts
 import windProfiles as wind
 import profileInstrument as pri
@@ -31,7 +32,8 @@ class Lidar(pri.ProfileInstrument):
         mult_index = pd.MultiIndex.from_product(iterables, names=['Component', 'Range [m]'])
         winds = pts.ProfileTimeSeries(index=self.profiles.index, columns=mult_index, dtype='float')
 
-        status_mat = self.data[status].as_matrix()
+        #status_mat = self.data[status].as_matrix()
+        status_mat = self.xarray['Status']
         is_good = (status_mat[0:-4,:] + status_mat[1:-3,:] + status_mat[2:-2,:] +
                    status_mat[3:-1,:] + status_mat[4:,:]) > 4.9
 
@@ -40,11 +42,13 @@ class Lidar(pri.ProfileInstrument):
         good_indices = (good_indices[0] + 4, good_indices[1])
         row_los = self.profiles['LOS ID'][good_indices[0]].values
 
-        los0 = self.data[rws].lookup(self.data[rws].index[good_indices[0] - row_los], rws_cols[good_indices[1]])
-        los1 = self.data[rws].lookup(self.data[rws].index[good_indices[0] - ((row_los + 4) % 5)], rws_cols[good_indices[1]])
-        los2 = self.data[rws].lookup(self.data[rws].index[good_indices[0] - ((row_los + 3) % 5)], rws_cols[good_indices[1]])
-        los3 = self.data[rws].lookup(self.data[rws].index[good_indices[0] - ((row_los + 2) % 5)], rws_cols[good_indices[1]])
-        los4 = self.data[rws].lookup(self.data[rws].index[good_indices[0] - ((row_los + 1) % 5)], rws_cols[good_indices[1]])
+        rws_mat = self.data[rws]
+        good_cols = rws_cols[good_indices[1]]
+        los0 = rws_mat.lookup(rws_mat.index[good_indices[0] - row_los], good_cols)
+        los1 = rws_mat.lookup(rws_mat.index[good_indices[0] - ((row_los + 4) % 5)], good_cols)
+        los2 = rws_mat.lookup(rws_mat.index[good_indices[0] - ((row_los + 3) % 5)], good_cols)
+        los3 = rws_mat.lookup(rws_mat.index[good_indices[0] - ((row_los + 2) % 5)], good_cols)
+        los4 = rws_mat.lookup(rws_mat.index[good_indices[0] - ((row_los + 1) % 5)], good_cols)
 
         xs = -(los2 - los0) / (2 * math.cos(el))
         ys = -(los3 - los1) / (2 * math.cos(el))
@@ -58,6 +62,8 @@ class Lidar(pri.ProfileInstrument):
             winds.ix[rows, ('y', rws_cols[col])] = ys[col_indices]
             winds.ix[rows, ('z', rws_cols[col])] = zs[col_indices]
 
+        windxr = xr.DataArray(winds).unstack('dim_1')
+        self.xarray['Windspeed [m/s]'] = windxr
         self.wind = wind.WindProfiles(winds)
 
     def estimate_wind_discrete(self, rws='RWS [m/s]', status='Status', interval='5T', max_se=1):

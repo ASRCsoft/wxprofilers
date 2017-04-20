@@ -11,18 +11,19 @@ import io
 import re
 import statsmodels.api as sm
 
+
 def lidar_from_csv(rws, scans=None, location=None, scan_id=None):
     # create a lidar object from Nathan's csv files
     # Timestamp,Configuration ID,Scan ID,LOS ID,Azimuth,Elevation,Range [m],RWS [m/s],DRWS [m/s],CNR [db],Confidence Index [%],Mean Error,Status
     csv = pd.read_csv(rws)
+    profile_vars = ['LOS ID', 'Configuration ID', 'Azimuth [°]', 'Elevation [°]']
 
     # get the data
-    data = csv.drop('LOS ID', 1).pivot(index='Timestamp', columns='Range [m]')
+    data = csv.drop(profile_vars, 1).pivot(index='Timestamp', columns='Range [m]')
     data.index = pd.to_datetime(data.index)
-    data_dict = pts.ProfileTimeSeries(data)
 
     # get the profiles
-    profiles = csv[['Timestamp', 'LOS ID']].groupby(['Timestamp', 'LOS ID']).agg(lambda x: x.iloc[0])
+    profiles = csv[['Timestamp', 'LOS ID']].drop_duplicates()
     # don't want a weird multi-index that includes LOS ID
     profiles.index = pd.DatetimeIndex(profiles['Timestamp'])
 
@@ -35,22 +36,32 @@ def lidar_from_csv(rws, scans=None, location=None, scan_id=None):
         scan = None
 
     # new!
-    profile_vars = ['Timestamp', 'LOS ID', 'Configuration ID', 'Azimuth [°]', 'Elevation [°]']
+    profile_vars.append('Timestamp')
     measurement_vars = ['RWS [m/s]', 'DRWS [m/s]', 'CNR [db]', 'Confidence Index [%]', 'Mean Error', 'Status']
     csv_profs = csv[profile_vars].groupby('Timestamp').agg(lambda x: x.iloc[0])
+
     h1 = {}
-    profile_vars = ['LOS ID', 'Configuration ID', 'Azimuth [°]', 'Elevation [°]']
+    coords = {'Timestamp': data.index, 'Range [m]': data.columns.levels[1]}
+    profile_vars.pop()  # get rid of 'Timestamp'
     for scan_type in profile_vars:
-        h1[scan_type] = ('Timestamp', csv_profs[scan_type])
+        coords[scan_type] = ('Timestamp', csv_profs[scan_type])
     for level in measurement_vars:
-        h1[level] = (['Timestamp', 'Range [m]'], data_dict[level])
-    xarray = xr.Dataset(h1)
-    #self.xarray = xr.Dataset.from_dataframe(tsdict)
+        h1[level] = (['Timestamp', 'Range [m]'], data[level])
+    xarray = xr.Dataset(h1, coords=coords, attrs={'scan': scan})
+    xarray.rename({'RWS [m/s]': 'RWS', 'DRWS [m/s]': 'DRWS', 'CNR [db]': 'CNR',
+                   'Confidence Index [%]': 'Confidence Index', 'Range [m]': 'Range',
+                   'Azimuth [°]': 'Azimuth', 'Elevation [°]': 'Elevation'}, inplace=True)
+    xarray['RWS'].attrs['units'] = 'm/s'
+    xarray['DRWS'].attrs['units'] = 'm/s'
+    xarray['CNR'].attrs['units'] = 'db'
+    xarray['Confidence Index'].attrs['units'] = 'percent'
+    xarray.coords['Range'].attrs['units'] = 'm'
+    xarray.coords['Azimuth'].attrs['units'] = 'degrees'
+    xarray.coords['Elevation'].attrs['units'] = 'degrees'
+    return xarray
 
-    #csv.set_index(['Timestamp', 'Range [m]'], inplace=True)
-    #xarray = xr.Dataset.from_dataframe(tsdict)
-    return lidar.Lidar(data_dict, profiles, scan=scan, xarray=xarray)
 
+# noinspection PyUnreachableCode
 def mr_from_csv(file, scan='Zenith'):
     # read file
     f = open(file, "r")
@@ -58,35 +69,34 @@ def mr_from_csv(file, scan='Zenith'):
     f.close()
 
     # get the type of each line
-    types = [ int(re.sub(",.*", "", re.sub("^[^,]*,[^,]*,", "", line))) for line in lines ]
-    headers = np.where([ re.search("^Record", line) for line in lines ])
+    types = [int(re.sub(",.*", "", re.sub("^[^,]*,[^,]*,", "", line))) for line in lines]
+    headers = np.where([re.search("^Record", line) for line in lines])
 
     # organize into csv's
     csvs = {}
     for n in np.nditer(headers):
         acceptable_types = np.array([1, 2, 3, 4])
         acceptable_types += types[n]
-        is_type = [ types[m] in acceptable_types for m in range(len(types)) ]
+        is_type = [types[m] in acceptable_types for m in range(len(types))]
         where_is_type = np.where(is_type)
         if where_is_type[0].size > 0:
-            csv_lines = [ lines[m] for m in np.nditer(where_is_type) ]
+            csv_lines = [lines[m] for m in np.nditer(where_is_type)]
             csv_lines.insert(0, lines[n])
             csv_string = ''.join(csv_lines)
             csv = io.StringIO(csv_string.decode('utf-8'))
             df = pd.read_csv(csv)
             csvs[str(types[n])] = df
 
-    # rearrange measurements into multiindex dataframe:
-    # mr_columns = csvs['400'].columns[4:-1].map(float)
-    names = csvs['100']['Title']
-    # iterables = [names, mr_columns]
-    # mult_index = pd.MultiIndex.from_product(iterables, names=['Record Type', 'Range (km)'])
-    # mr_index = pd.to_datetime(csvs['30']['Date/Time'][2:])
-    # mr_data = pts.ProfileTimeSeries(index=mr_index, columns=mult_index, dtype='float')
+    record_types = csvs['100']['Title'].values
+    names = [ re.split(' \(', record_type)[0] for record_type in record_types ]
+    units = [ re.sub('.*\(|\).*', '', record_type) for record_type in record_types ]
+    record_unit_dict = {}
+    for n in range(len(record_types)):
+        record_unit_dict[names[n]] = units[n]
 
-    # just make it a hash for now. might go back to multiindex dataframe later
     mr_data = {}
 
+    csvs['400']['DataQuality'] = csvs['400']['DataQuality'].astype(bool)
     df400 = csvs['400']
     df400['Date/Time'] = pd.to_datetime(df400['Date/Time'])
     for n in range(csvs['100'].shape[0]):
@@ -96,16 +106,25 @@ def mr_from_csv(file, scan='Zenith'):
         df = df400.loc[is_type, df400.columns[4:-1]]
         df.index = df400.loc[is_type, 'Date/Time']
         df.columns = df.columns.map(float)
-        #df.index = mr_index
         mr_data[name] = df
 
-    #print(mr_data['Liquid (g/m^3)'].head())
-    # good enough for now
-    return(pins.ProfileInstrument(mr_data))
-
-
-
-
+    # convert data frame to xarray
+    mrdf = df400
+    # add a scan number (like record number, but for all measurements together)
+    mrdf['scan'] = np.floor_divide(range(mrdf.shape[0]), 16)
+    mrdf.set_index(['scan', '400', 'LV2 Processor'], inplace=True)
+    mrdf2 = mrdf.drop(['Record', 'DataQuality', 'Date/Time'], axis=1)
+    mrxr = xr.DataArray(mrdf2).unstack('dim_0')
+    mrtimes = xr.DataArray(mrdf['Date/Time']).unstack('dim_0')
+    mrds = xr.Dataset({'Measurement': mrxr, 'Date/Time': mrtimes})
+    mrds['DataQuality'] = xr.DataArray(mrdf['DataQuality']).unstack('dim_0')
+    mrds.coords['dim_1'] = map(float, mrxr.coords['dim_1'].values)
+    mrds.rename({'400': 'Record Type', 'dim_1': 'Range'}, inplace=True)
+    mrds.coords['Record Type'] = names
+    mrds.coords['Range'].attrs['units'] = 'km'
+    mrds['Measurement'].attrs['units'] = record_unit_dict
+    mrds.set_coords('Date/Time', inplace=True)
+    return mrds
 
 
 def wind_regression(wdf, elevation=75, max_se=1):
@@ -149,6 +168,20 @@ def wind_regression(wdf, elevation=75, max_se=1):
         #     exit()
         coefs[np.logical_or(se > max_se, np.logical_not(np.isfinite(se)))] = np.nan
         df_data = np.concatenate((coefs, results.bse))
-        resultsdf.loc[colnames[n],:] = df_data
+        resultsdf.loc[colnames[n], :] = df_data
 
     return resultsdf
+
+
+def recursive_resample(ds, rule, coord, dim, coords):
+    if len(coords) == 0:
+        return ds.swap_dims({dim: coord}).resample(rule, coord)
+    else:
+        arrays = []
+        cur_coord = coords[0]
+        next_coords = coords[1:]
+        for coordn in ds.coords[cur_coord].values:
+            ds2 = ds.sel(**{cur_coord: coordn})
+            arrays.append(recursive_resample(ds2, rule, coord, dim, next_coords))
+
+        return xr.concat(arrays, ds.coords[cur_coord])

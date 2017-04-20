@@ -1,5 +1,7 @@
 import numpy as np
 import pandas as pd
+import matplotlib.dates as mdates
+from metpy.plots import SkewT
 import xarray as xr
 
 class ProfileInstrument(object):
@@ -56,7 +58,7 @@ class ProfileInstrument(object):
         header = '\n'.join(header_lines)
 
         # set up the data (making sure to round as required)
-        levels = self.data[temp].columns
+        levels = self._obj.coords['Range'].values
         if len(levels) < 2:
             print('Must have at least 2 levels of data')
             exit()
@@ -65,8 +67,8 @@ class ProfileInstrument(object):
         else:
             columns = ['PRES', 'TEMP', 'RH', 'WIND', 'SPEED', 'GPM']
         df = pd.DataFrame(index = levels, columns = columns)
-        df['TEMP'] = self.data[temp].loc[time].map(lambda x: round(x, 1))
-        df['RH'] = self.data[rh].loc[time].map(lambda x: round(x, 1))
+        df['TEMP'] = self._obj[temp].loc[time].map(lambda x: round(x, 1))
+        df['RH'] = self._obj[rh].loc[time].map(lambda x: round(x, 1))
         # df['WIND'] = np.nan
         # df['SPEED'] = np.nan
         df['GPM'] = map(int, map(lambda x: round(x), 1000 * self.data[temp].columns.map(float)))
@@ -89,6 +91,31 @@ class ProfileInstrument(object):
         # print(df.head())
         # exit()
         df.to_csv(filename, na_rep=-999, index=False, mode='a')
+
+    def plot_barbs(self, resample=None, ax=None):
+        if resample is not None:
+            l1 = self.xarray.resample(resample, 'Timestamp')
+        else:
+            l1 = self.xarray
+        x = [mdates.date2num(pd.Timestamp(val)) for val in l1.coords['Timestamp'].values]
+        y = l1.coords['Range [m]']
+        X, Y = np.meshgrid(x, y)
+        U = l1['Windspeed [m/s]'].sel(Component='x').transpose()
+        V = l1['Windspeed [m/s]'].sel(Component='y').transpose()
+        ax.barbs(X, Y, U, V)
+
+    def skewt(self, time=None):
+        skew = SkewT()
+        hpascals = 1013.25 * np.exp(-self.xarray.coords['Range (km)'] / 7)
+        tempk = self.xarray['measure'].sel(**{'Record Type': 'Temperature (K)', 'LV2 Processor': 'Zenith'}).isel(scan=0)
+        tempc = tempk - 273.15
+        humidity = self.xarray['measure'].sel(**{'Record Type': 'Relative Humidity (%)', 'LV2 Processor': 'Zenith'}).isel(scan=0)
+        dewpoint = tempk - ((100 - humidity) / 5) - 273.15
+        skew.plot(hpascals, tempc, 'r'),
+        skew.plot(hpascals, dewpoint, 'g')
+        skew.plot_dry_adiabats()
+        skew.plot_moist_adiabats()
+        skew.ax.set_ylim(1100, 200)
 
     # def __getattr__(self, item):
     #     print(item)
