@@ -1,4 +1,4 @@
-# Skykit
+# raspPy
 Python package with utilities for Lidar and other weather profile instruments
 
 
