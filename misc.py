@@ -4,19 +4,21 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 import profileTimeSeries as pts
-import profileInstrument as pins
-import lidar
 import math
 import io
 import re
 import statsmodels.api as sm
 
 
-def lidar_from_csv(rws, scans=None, location=None, scan_id=None):
+def lidar_from_csv(rws, scans=None, location=None, scan_id=None, lidar=None, loc=None):
     # create a lidar object from Nathan's csv files
     # Timestamp,Configuration ID,Scan ID,LOS ID,Azimuth,Elevation,Range [m],RWS [m/s],DRWS [m/s],CNR [db],Confidence Index [%],Mean Error,Status
     csv = pd.read_csv(rws)
     profile_vars = ['LOS ID', 'Configuration ID', 'Azimuth [°]', 'Elevation [°]']
+    #profile_vars2 = ['scan', 'LOS ID', 'Timestamp', 'Configuration ID', 'Azimuth [°]', 'Elevation [°]']
+    #profile_vars = ['Configuration ID', 'Azimuth [°]', 'Elevation [°]']
+
+
 
     # get the data
     data = csv.drop(profile_vars, 1).pivot(index='Timestamp', columns='Range [m]')
@@ -27,26 +29,64 @@ def lidar_from_csv(rws, scans=None, location=None, scan_id=None):
     # don't want a weird multi-index that includes LOS ID
     profiles.index = pd.DatetimeIndex(profiles['Timestamp'])
 
+    # new!
+    profile_vars.append('Timestamp')
+    measurement_vars = ['RWS [m/s]', 'DRWS [m/s]', 'CNR [db]', 'Confidence Index [%]', 'Mean Error', 'Status']
+    csv_profs = csv[profile_vars].groupby('Timestamp').agg(lambda x: x.iloc[0])
+    #csv_profs.reset_index(inplace=True)
+    #csv_profs['Timestamp'] = pd.to_datetime(csv_profs['Timestamp'])
+    #return csv_profs
+
+    h1 = {}
+    coords = {'Timestamp': ('Timestamp', data.index), 'Range [m]': data.columns.levels[1]}
+    if lidar is not None:
+        coords['lidar'] = [lidar]
+        if loc is not None:
+            coords['latitude'] = ('lidar', [loc[0]])
+            coords['longitude'] = ('lidar', [loc[1]])
+    profile_vars.remove('Timestamp')  # get rid of 'Timestamp'
+    #csv_profs2 = csv_profs.pivot(index='scan', columns='LOS ID')
+    #coords = {'scan': csv_profs['scan'].unique(), 'LOS ID': range(nlos), 'Range [m]': data.columns.levels[1]}
+    #profile_vars.remove('LOS ID')
+    #profile_vars.remove('scan')
+    #return csv_profs['scan']
+    #data['scan'] = csv_profs['scan'].values
+    #data['LOS ID'] = csv_profs['LOS ID'].values
+    #data.set_index(['scan', 'LOS ID'], inplace=True)
+
     # get the scan info
     if scans is not None:
         scan_xml = xml.etree.ElementTree.parse(scans).getroot()
         # in real life, we should search for the scan with the given id (if one is given) and get the info for that scan
         scan = scan_xml[0][1][2][0].attrib
+        nlos = None
+        if scan['mode'] == 'dbs':
+            nlos = 5
+        if nlos is not None:
+            # if we can get nlos, add a multiindex 'profile' coordinate that includes scan # and LOS ID as dimensions
+            #profile_vars.remove('LOS ID')  # which means LOS ID is no longer one of these
+
+            # set up the scan numbers
+            # get the cumulative sum of the zero's-- clever, I like!
+            csv_profs['scan'] = np.cumsum(csv_profs['LOS ID'] == 0)
+            profile_vars.append('scan') # now the scan is a profile variable
+
+            # set up the profile multiindex -- nope don't do this
+            # profile = pd.MultiIndex.from_arrays([csv_profs['scan'], csv_profs['LOS ID']], names=('scan', 'LOS ID'))
+            # coords['profile'] = ('profile', profile)
     else:
         scan = None
 
-    # new!
-    profile_vars.append('Timestamp')
-    measurement_vars = ['RWS [m/s]', 'DRWS [m/s]', 'CNR [db]', 'Confidence Index [%]', 'Mean Error', 'Status']
-    csv_profs = csv[profile_vars].groupby('Timestamp').agg(lambda x: x.iloc[0])
 
-    h1 = {}
-    coords = {'Timestamp': data.index, 'Range [m]': data.columns.levels[1]}
-    profile_vars.pop()  # get rid of 'Timestamp'
     for scan_type in profile_vars:
         coords[scan_type] = ('Timestamp', csv_profs[scan_type])
+        #coords[scan_type] = (('scan', 'LOS ID'), csv_profs2[scan_type])
     for level in measurement_vars:
-        h1[level] = (['Timestamp', 'Range [m]'], data[level])
+        h1[level] = (('Timestamp', 'Range [m]'), xr.DataArray(data[level]))
+        #h1[level] = (('Range [m]', 'scan', 'LOS ID'), xr.DataArray(data[level]).unstack('dim_0'))
+        #h1[level] = (('dim_0', 'Range [m]'), xr.DataArray(data[level]))
+    #return h1
+    #return coords
     xarray = xr.Dataset(h1, coords=coords, attrs={'scan': scan})
     xarray.rename({'RWS [m/s]': 'RWS', 'DRWS [m/s]': 'DRWS', 'CNR [db]': 'CNR',
                    'Confidence Index [%]': 'Confidence Index', 'Range [m]': 'Range',
@@ -61,7 +101,6 @@ def lidar_from_csv(rws, scans=None, location=None, scan_id=None):
     return xarray
 
 
-# noinspection PyUnreachableCode
 def mr_from_csv(file, scan='Zenith'):
     # read file
     f = open(file, "r")

@@ -1,16 +1,11 @@
 '''
-This file uses the dataframe with time index
-Main use is for plotting heatmaps using matplotlib
-Includes the core functions handling the data
-for plotting and aggregating by time
+Extensions of xarray Datasets and DataArrays
 '''
 import math
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-#import matplotlib.image as mpimg
 import matplotlib.dates as mdates
-#import copy
 import misc as rasp
 
 # rewriting as an xarray module, following the guidelines here:
@@ -45,8 +40,9 @@ class ProfileDataset(object):
         # add 4 columns for the 4 removed earlier
         good_indices = (good_indices[0] + 4, good_indices[1])
         row_los = self._obj.coords['LOS ID'][good_indices[0]].astype(int).values
+        #return row_los
 
-        rws_mat = pd.DataFrame(self._obj[rws].values, index=self._obj.coords['Timestamp'].values, columns=rws_cols)
+        rws_mat = pd.DataFrame(self._obj[rws].values, index=self._obj.coords['Timestamp'].to_index(), columns=rws_cols)
         good_cols = rws_cols[good_indices[1]]
         los0 = rws_mat.lookup(rws_mat.index[good_indices[0] - row_los], good_cols)
         los1 = rws_mat.lookup(rws_mat.index[good_indices[0] - ((row_los + 4) % 5)], good_cols)
@@ -66,14 +62,15 @@ class ProfileDataset(object):
             winds.ix[rows, ('y', rws_cols[col])] = ys[col_indices]
             winds.ix[rows, ('z', rws_cols[col])] = zs[col_indices]
 
-        windxr = xr.DataArray(winds).unstack('dim_1')
+        windxr = xr.DataArray(winds).unstack('dim_1')#.rename({'dim_0': 'profile'})
+        #return windxr
         self._obj['Windspeed'] = windxr
         self._obj['Windspeed'].attrs['units'] = 'm/s'
         return True
 
     def estimate_wind(self, method='Leosphere', **kwargs):
         if method=='Leosphere':
-            self.estimate_wind_leosphere(**kwargs)
+            return self.estimate_wind_leosphere(**kwargs)
         elif method=='discrete':
             self.estimate_wind_discrete(**kwargs)
         else:
@@ -143,22 +140,8 @@ class ProfileDataset(object):
         # exit()
         df.to_csv(filename, na_rep=-999, index=False, mode='a', line_terminator=line_terminator)
 
-    # def recursive_resample(self, ds, rule, coord, dim, coords):
-    #     if len(coords) == 0:
-    #         return ds.swap_dims({dim: coord}).resample(rule, coord)
-    #     else:
-    #         arrays = []
-    #         cur_coord = coords[0]
-    #         next_coords = coords[1:]
-    #         for coordn in ds.coords[cur_coord].values:
-    #             ds2 = ds.sel(**{cur_coord: coordn})
-    #             arrays.append(self.recursive_resample(ds2, rule, coord, dim, next_coords))
-    #
-    #         return xr.concat(arrays, ds.coords[cur_coord])
-
     def nd_resample(self, rule, coord, dim):
-        coords = self._obj.coords[coord].coords.keys()
-        coords.remove(coord)
+        coords = list(self._obj.coords[coord].dims)
         coords.remove(dim)
         return rasp.recursive_resample(self._obj, rule, coord, dim, coords)
 
@@ -167,11 +150,23 @@ class ProfileDataset(object):
         for value in self._obj.coords[dim].values:
             ds[value] = self._obj[array].sel(**{dim: value}).drop(dim)
         ds = xr.merge([self._obj, ds]).drop(array)
-        # if inplace:
-        #     self._obj = ds
-        # else:
-        #     return ds
         return ds
+
+    def los_format(self):
+        # switch to LOS format and print the new xarray object
+        lidar2 = self._obj.copy()
+        lidar2 = lidar2.set_index(profile=['scan', 'LOS ID'])
+        lidar2.coords['profile'] = ('Timestamp', lidar2.coords['profile'].to_index())
+        lidar2.swap_dims({'Timestamp': 'profile'}, inplace=True)
+        return lidar2.unstack('profile')
+
+    def replace_nat(self):
+        # needs a little work!
+        self._obj.coords['Timestamp'][0][pd.isnull(self._obj.coords['Timestamp'][0])] = self._obj.coords['Timestamp'].min()
+        self._obj.coords['Timestamp'][-1][pd.isnull(self._obj.coords['Timestamp'][-1])] = self._obj.coords['Timestamp'].max()
+        missing = np.where(pd.isnull(self._obj.coords['Timestamp']))
+        for n in range(len(missing[0])):
+            self._obj.coords['Timestamp'][missing[0][n], missing[1][n]] = self._obj.coords['Timestamp'].values[missing[0][n], missing[1][n] - 1]
 
 
 @xr.register_dataarray_accessor('rasp')
@@ -196,44 +191,3 @@ class RaspAccessor(object):
         if ax is None:
             ax = plt.subplot(111)
         ax.barbs(X, Y, U, V)
-
-
-# class ProfileTimeSeries(pd.DataFrame):
-#     def __init__(self, *args, **kwargs):
-#         # check that the index is datetimes, then init as a data frame
-#         # if (not isinstance(df.index, pd.tseries.index.DatetimeIndex)):
-#         #     raise ValueError('Data frame must be indexed by Datetimes')
-#         #pd.DataFrame.__init__(self, df)
-#         super(ProfileTimeSeries, self).__init__(*args, **kwargs)
-#
-#     # this is needed so that subsetting functions return a ProfileTimeSeries instead of a DataFrame
-#     @property
-#     def _constructor(self):
-#         return ProfileTimeSeries
-#
-#     def plot_heatmap(self, ax, **kwargs):
-#         # fix indices to plot the data with 'nearest' interpolation
-#         index0 = self.index
-#         new_index = index0[:-1] + (index0[1:] - index0[:-1]) / 2
-#         new_index = new_index.insert(0, index0[0])
-#         df = pd.DataFrame(self.as_matrix(), index = new_index, columns=self.columns, dtype='float')
-#         df.loc[index0[-1],:] = np.nan
-#
-#         # set up graph
-#         start_time = df.index[0]
-#         end_time = df.index[-1]
-#         xs = df.index.map(mdates.date2num)
-#         ys = df.columns.map(float)
-#         y2d, x2d = np.meshgrid(ys, xs)
-#         ax.set_xlim(start_time, end_time)
-#         m2 = np.ma.masked_invalid(df)
-#         im = ax.pcolormesh(x2d, y2d, m2, **kwargs)
-#         plt.colorbar(im)
-#
-#     def plot_profile(self, ax, legend=True, **kwargs):
-#         kwargs['label'] = self.index
-#         ys = self.columns.map(int)
-#         ax.plot(self.transpose(), ys, **kwargs)
-#         if legend:
-#             # plt.legend(lines, self.index)
-#             ax.legend(self.index)
