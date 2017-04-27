@@ -32,7 +32,7 @@ class ProfileDataset(object):
         winds = pd.DataFrame(index=self._obj.coords['Timestamp'].to_index(), columns=mult_index, dtype='float')
 
         #status_mat = self.data[status].as_matrix()
-        status_mat = self._obj[status].values
+        status_mat = self._obj[status].values.astype(int)
         is_good = (status_mat[0:-4,:] + status_mat[1:-3,:] + status_mat[2:-2,:] +
                    status_mat[3:-1,:] + status_mat[4:,:]) > 4.9
 
@@ -64,7 +64,9 @@ class ProfileDataset(object):
 
         windxr = xr.DataArray(winds).unstack('dim_1')#.rename({'dim_0': 'profile'})
         #return windxr
+        range_attrs = self._obj.coords['Range'].attrs
         self._obj['Windspeed'] = windxr
+        self._obj.coords['Range'].attrs = range_attrs
         self._obj['Windspeed'].attrs['units'] = 'm/s'
         return True
 
@@ -145,7 +147,7 @@ class ProfileDataset(object):
         coords.remove(dim)
         return rasp.recursive_resample(self._obj, rule, coord, dim, coords)
 
-    def split_dim(self, array, dim):
+    def split_array(self, array, dim):
         ds = xr.Dataset()
         for value in self._obj.coords[dim].values:
             ds[value] = self._obj[array].sel(**{dim: value}).drop(dim)
@@ -155,6 +157,8 @@ class ProfileDataset(object):
     def los_format(self):
         # switch to LOS format and print the new xarray object
         lidar2 = self._obj.copy()
+        lidar2['scan'] = ('Timestamp', np.cumsum(lidar2['LOS ID'].values == 0))
+        lidar2.set_coords('scan', inplace=True)
         lidar2 = lidar2.set_index(profile=['scan', 'LOS ID'])
         lidar2.coords['profile'] = ('Timestamp', lidar2.coords['profile'].to_index())
         lidar2.swap_dims({'Timestamp': 'profile'}, inplace=True)
@@ -167,6 +171,36 @@ class ProfileDataset(object):
         missing = np.where(pd.isnull(self._obj.coords['Timestamp']))
         for n in range(len(missing[0])):
             self._obj.coords['Timestamp'][missing[0][n], missing[1][n]] = self._obj.coords['Timestamp'].values[missing[0][n], missing[1][n] - 1]
+
+    def remove_where(self, arrays, logarr):
+        # for array in arrays:
+        #     self._obj[array] = xr.DataArray(np.where(logarr, np.nan, self._obj[array]), dims=self._obj[array].dims)
+        for array in arrays:
+            self._obj[array].values = np.where(logarr, np.nan, self._obj[array])
+        # if inplace:
+        #     self._obj = xr.DataArray(np.where(logarr, np.nan, self._obj), dims=self._obj.dims)
+        # else:
+        #     return xr.DataArray(np.where(logarr, np.nan, self._obj), dims=self._obj.dims)
+
+    def skewt(self, temp=None, rel_hum=None):
+        from metpy.plots import SkewT
+        if temp is None:
+            temp = 'Temperature'
+        if rel_hum is None:
+            rel_hum = 'Relative Humidity'
+        # convert range (m) to hectopascals
+        hpascals = 1013.25 * np.exp(-self._obj.coords['Range'] / 7)
+        # convert temperature from Kelvins to Celsius
+        tempC = self._obj[temp] - 273.15
+        # estimate dewpoint from relative humidity
+        dewpoints =  self._obj[temp] - ((100 - self._obj[rel_hum]) / 5) - 273.15
+        skew = SkewT()
+        skew.plot(hpascals, tempC, 'r')
+        skew.plot(hpascals, dewpoints, 'g')
+        skew.plot_dry_adiabats()
+        skew.plot_moist_adiabats()
+        skew.plot_mixing_lines()
+        skew.ax.set_ylim(1100, 200)
 
 
 @xr.register_dataarray_accessor('rasp')
@@ -191,3 +225,9 @@ class RaspAccessor(object):
         if ax is None:
             ax = plt.subplot(111)
         ax.barbs(X, Y, U, V)
+
+    def remove_where(self, logarr, inplace=False):
+        if inplace:
+            self._obj.values = xr.DataArray(np.where(logarr, np.nan, self._obj))
+        else:
+            return xr.DataArray(np.where(logarr, np.nan, self._obj), dims=self._obj.dims)

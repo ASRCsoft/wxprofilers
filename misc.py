@@ -59,21 +59,6 @@ def lidar_from_csv(rws, scans=None, location=None, scan_id=None, lidar=None, loc
         scan_xml = xml.etree.ElementTree.parse(scans).getroot()
         # in real life, we should search for the scan with the given id (if one is given) and get the info for that scan
         scan = scan_xml[0][1][2][0].attrib
-        nlos = None
-        if scan['mode'] == 'dbs':
-            nlos = 5
-        if nlos is not None:
-            # if we can get nlos, add a multiindex 'profile' coordinate that includes scan # and LOS ID as dimensions
-            #profile_vars.remove('LOS ID')  # which means LOS ID is no longer one of these
-
-            # set up the scan numbers
-            # get the cumulative sum of the zero's-- clever, I like!
-            csv_profs['scan'] = np.cumsum(csv_profs['LOS ID'] == 0)
-            profile_vars.append('scan') # now the scan is a profile variable
-
-            # set up the profile multiindex -- nope don't do this
-            # profile = pd.MultiIndex.from_arrays([csv_profs['scan'], csv_profs['LOS ID']], names=('scan', 'LOS ID'))
-            # coords['profile'] = ('profile', profile)
     else:
         scan = None
 
@@ -91,6 +76,7 @@ def lidar_from_csv(rws, scans=None, location=None, scan_id=None, lidar=None, loc
     xarray.rename({'RWS [m/s]': 'RWS', 'DRWS [m/s]': 'DRWS', 'CNR [db]': 'CNR',
                    'Confidence Index [%]': 'Confidence Index', 'Range [m]': 'Range',
                    'Azimuth [°]': 'Azimuth', 'Elevation [°]': 'Elevation'}, inplace=True)
+    xarray['Status'] = xarray['Status'].astype(bool)
     xarray['RWS'].attrs['units'] = 'm/s'
     xarray['DRWS'].attrs['units'] = 'm/s'
     xarray['CNR'].attrs['units'] = 'db'
