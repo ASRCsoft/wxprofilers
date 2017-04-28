@@ -182,25 +182,58 @@ class ProfileDataset(object):
         # else:
         #     return xr.DataArray(np.where(logarr, np.nan, self._obj), dims=self._obj.dims)
 
-    def skewt(self, temp=None, rel_hum=None):
+    def skewt(self, temp=None, rel_hum=None, wind=None, **kwargs):
         from metpy.plots import SkewT
-        if temp is None:
-            temp = 'Temperature'
-        if rel_hum is None:
-            rel_hum = 'Relative Humidity'
-        # convert range (m) to hectopascals
-        hpascals = 1013.25 * np.exp(-self._obj.coords['Range'] / 7)
-        # convert temperature from Kelvins to Celsius
-        tempC = self._obj[temp] - 273.15
-        # estimate dewpoint from relative humidity
-        dewpoints =  self._obj[temp] - ((100 - self._obj[rel_hum]) / 5) - 273.15
-        skew = SkewT()
-        skew.plot(hpascals, tempC, 'r')
-        skew.plot(hpascals, dewpoints, 'g')
-        skew.plot_dry_adiabats()
-        skew.plot_moist_adiabats()
-        skew.plot_mixing_lines()
-        skew.ax.set_ylim(1100, 200)
+        if not 'col' in kwargs.keys() and not 'row' in kwargs.keys():
+            if temp is None:
+                temp = 'Temperature'
+            if rel_hum is None:
+                rel_hum = 'Relative Humidity'
+            # convert range (m) to hectopascals
+            hpascals = 1013.25 * np.exp(-self._obj.coords['Range'] / 7)
+            # convert temperature from Kelvins to Celsius
+            tempC = self._obj[temp] - 273.15
+            # estimate dewpoint from relative humidity
+            dewpoints = self._obj[temp] - ((100 - self._obj[rel_hum]) / 5) - 273.15
+            skew = SkewT()
+            skew.plot(hpascals, tempC, 'r')
+            skew.plot(hpascals, dewpoints, 'g')
+            skew.plot_dry_adiabats()
+            skew.plot_moist_adiabats()
+            if not wind is None:
+                u = -self._obj[wind].sel(Component='y')
+                v = -self._obj[wind].sel(Component='x')
+                skew.plot_barbs(hpascals, u, v, xloc=.9)
+            # skew.plot_mixing_lines()
+            # skew.ax.set_ylim(1100, 200)
+        else:
+            if not wind is None:
+                skewtdat = xr.concat([self._obj['Temperature'], self._obj['Relative Humidity'],
+                                      -self._obj[wind].sel(Component='y').drop('Component'),
+                                      -self._obj[wind].sel(Component='x').drop('Component')],
+                                     'measure')
+                skewtdat.coords['measure'] = ['Temperature', 'Relative Humidity', 'windx', 'windy']
+            else:
+                skewtdat = xr.concat([self._obj['Temperature'], self._obj['Relative Humidity']], 'measure')
+                skewtdat.coords['measure'] = ['Temperature', 'Relative Humidity']
+
+            # skewtdat
+            sk1 = xr.plot.FacetGrid(skewtdat, **kwargs)
+            # need to make the subplot tuples
+
+            for ax in sk1.axes.flat:
+                ax.axis('off')
+
+            splots = range(len(sk1.axes.flat))
+            splot_dims = sk1.axes.shape
+            splot_tuples = []
+            for i in splots:
+                splot_tuples.append((splot_dims[0], splot_dims[1], i + 1))
+
+            if not wind is None:
+                sk1.map(rasp.skewt, [0, 1, 2, 3], splots=splot_tuples, ranges=skewtdat.coords['Range'].values)
+            else:
+                sk1.map(rasp.skewt, [0, 1], splots=splot_tuples, ranges=skewtdat.coords['Range'].values)
 
 
 @xr.register_dataarray_accessor('rasp')

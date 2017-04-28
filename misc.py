@@ -3,6 +3,7 @@ import xml.etree.ElementTree
 import numpy as np
 import pandas as pd
 import xarray as xr
+import matplotlib.pyplot as plt
 import profileTimeSeries as pts
 import math
 import io
@@ -210,3 +211,34 @@ def recursive_resample(ds, rule, coord, dim, coords):
             arrays.append(recursive_resample(ds2, rule, coord, dim, next_coords))
 
         return xr.concat(arrays, ds.coords[cur_coord])
+
+def skewt(data, splots, ranges, temp=None, rel_hum=None, **kwargs):
+    from metpy.plots import SkewT
+    if temp is None:
+        temp = 'Temperature'
+    if rel_hum is None:
+        rel_hum = 'Relative Humidity'
+    # convert range (m) to hectopascals
+    #hpascals = 1013.25 * np.exp(-data.coords['Range'] / 7)
+    hpascals = 1013.25 * np.exp(-ranges / 7)
+    # convert temperature from Kelvins to Celsius
+    tempC = data[0] - 273.15
+    # estimate dewpoint from relative humidity
+    dewpoints = data[0] - ((100 - data[1]) / 5) - 273.15
+
+    # get info about the current figure
+    # fshape = plt.gcf().axes.shape
+    # skew = SkewT(fig=plt.gcf(), subplot=(fshape[0], fshape[1], splots[0]))
+    skew = SkewT(fig=plt.gcf(), subplot=splots[0])
+    #plt.gca().axis('off')
+    splots.pop(0)
+    skew.plot(hpascals, tempC, 'r')
+    skew.plot(hpascals, dewpoints, 'g')
+    skew.plot_dry_adiabats()
+    skew.plot_moist_adiabats()
+    if data.shape[0] == 4:
+        u = data[2]
+        v = data[3]
+        skew.plot_barbs(hpascals, u, v, xloc=.9)
+    # skew.plot_mixing_lines()
+    # skew.ax.set_ylim(1100, 200)
