@@ -22,7 +22,7 @@ class ProfileDataset(object):
             # raise an error
             pass
 
-        el = float(self._obj.attrs['scan']['elevation_angle_deg']) * math.pi / 180
+        el = float(self._obj.attrs['elevation_angle_deg']) * math.pi / 180
 
         # create the multiIndex ProfileTimeSeries
         #rws_cols = self.data[rws].columns
@@ -50,17 +50,19 @@ class ProfileDataset(object):
         los3 = rws_mat.lookup(rws_mat.index[good_indices[0] - ((row_los + 2) % 5)], good_cols)
         los4 = rws_mat.lookup(rws_mat.index[good_indices[0] - ((row_los + 1) % 5)], good_cols)
 
-        xs = (los2 - los0) / (2 * math.cos(el))
-        ys = (los3 - los1) / (2 * math.cos(el))
+        # these numbers are weird but should match the Lidar (but
+        xs = (los0 - los2) / (2 * math.cos(el))
+        ys = (los1 - los3) / (2 * math.cos(el))
         zs = (los0 + los1 + los2 + los3) * .789 / (4 * math.sin(el)) + los4 * .211
 
         # YAAAAAAAAAAAAAAAAAAAAAAAYYYYYYYYYYYYYYYY it works!!!!!!!!!!
         for col in range(self._obj[rws].shape[1]):
             col_indices = np.where(good_indices[1] == col)
             rows = good_indices[0][col_indices]
-            winds.ix[rows, ('x', rws_cols[col])] = xs[col_indices]
-            winds.ix[rows, ('y', rws_cols[col])] = ys[col_indices]
-            winds.ix[rows, ('z', rws_cols[col])] = zs[col_indices]
+            # swapping x/y and negative to get American coordinates!!:
+            winds.ix[rows, ('x', rws_cols[col])] = -ys[col_indices]
+            winds.ix[rows, ('y', rws_cols[col])] = -xs[col_indices]
+            winds.ix[rows, ('z', rws_cols[col])] = -zs[col_indices]
 
         windxr = xr.DataArray(winds).unstack('dim_1')#.rename({'dim_0': 'profile'})
         #return windxr
@@ -78,15 +80,18 @@ class ProfileDataset(object):
         else:
             pass
 
-    def writeRAOB(self, time, filename, timedim='Time', temp='Temperature (K)', rh='Relative Humidity (%)',
+    def write_raob(self, time, filename, timedim='Time', temp='Temperature', rh='Relative Humidity',
                   vap_den=None, liq_wat=None, wind=True, wspeed=True, line_terminator='\n'):
 
         # set up the header information
         header_lines = []
-        header_lines.append('RAOB/CSV, ' + 'Example Data from microwave radiometer and lidar')
+        #header_lines.append('RAOB/CSV, ' + 'Example Data from microwave radiometer and lidar')
+        #time_str = time.strftime('%Y-%m-%d %H:%M:%S')
+        time_str = pd.to_datetime(time).strftime('%Y-%m-%d %H:%M:%S')
+        header_lines.append('RAOB/CSV, ' + time_str)
         # header_lines.append('INFO:1, ' + 'First line of freeform text')
         # header_lines.append('INFO:2, ' + 'Another freeform text line')
-        header_lines.append('DTG, ' + str(time))
+        header_lines.append('DTG, ' + time_str)
         if 'latitude' in self._obj.attrs.keys(): header_lines.append('LAT, ' + str(self._obj.attrs['latitude']) + ', N')
         if 'longitude' in self._obj.attrs.keys(): header_lines.append('LON, ' + str(self._obj.attrs['longitude']) + ', W')
         if 'elevation' in self._obj.attrs.keys(): header_lines.append('ELEV, ' + str(self._obj.attrs['elevation']) + ', M')
@@ -128,10 +133,10 @@ class ProfileDataset(object):
         if liq_wat is not None: df['LiqWat'] = np.round(self._obj[liq_wat].sel(**{timedim: time}), 3)
         #if self.wind is not None:
         if wind:
-            df['UU'] = -np.round(self._obj['Windspeed'].sel(**{timedim: time, 'Component': 'y'}), 1)
-            df['VV'] = -np.round(self._obj['Windspeed'].sel(**{timedim: time, 'Component': 'x'}), 1)
+            df['UU'] = np.round(self._obj['Windspeed'].sel(**{timedim: time, 'Component': 'x'}), 1)
+            df['VV'] = np.round(self._obj['Windspeed'].sel(**{timedim: time, 'Component': 'y'}), 1)
         if wspeed:
-            df['WSPEED'] = -np.round(self._obj['Windspeed'].sel(**{timedim: time, 'Component': 'z'}), 1)
+            df['WSPEED'] = np.round(self._obj['Windspeed'].sel(**{timedim: time, 'Component': 'z'}), 1)
 
         # print(df)
 
@@ -154,7 +159,7 @@ class ProfileDataset(object):
         ds = xr.merge([self._obj, ds]).drop(array)
         return ds
 
-    def los_format(self):
+    def los_format(self, replace_nat=True):
         # switch to LOS format and print the new xarray object
         lidar2 = self._obj.copy()
         lidar2['scan'] = ('Timestamp', np.cumsum(lidar2['LOS ID'].values == 0))
@@ -162,55 +167,89 @@ class ProfileDataset(object):
         lidar2 = lidar2.set_index(profile=['scan', 'LOS ID'])
         lidar2.coords['profile'] = ('Timestamp', lidar2.coords['profile'].to_index())
         lidar2.swap_dims({'Timestamp': 'profile'}, inplace=True)
-        return lidar2.unstack('profile')
+        lidar2 = lidar2.unstack('profile')
+        if replace_nat:
+            lidar2.rasp.replace_nat()
 
-    def replace_nat(self):
-        # needs a little work!
-        self._obj.coords['Timestamp'][0][pd.isnull(self._obj.coords['Timestamp'][0])] = self._obj.coords['Timestamp'].min()
-        self._obj.coords['Timestamp'][-1][pd.isnull(self._obj.coords['Timestamp'][-1])] = self._obj.coords['Timestamp'].max()
-        missing = np.where(pd.isnull(self._obj.coords['Timestamp']))
+        return lidar2
+
+    def replace_nat(self, timedim='Timestamp'):
+        max_los = self._obj.coords['LOS ID'].max()
+        # get all missing except for the last scan
+        missing = np.where(pd.isnull(self._obj.coords[timedim][0:-1, :]))
+        # replace missing times with the next time:
+        for n in reversed(range(len(missing[0]))):
+            # index contains scan, then LOS ID
+            index = (missing[0][n], missing[1][n])
+            if index[1] == max_los:
+                next_index = (index[0] + 1, 0)
+            else:
+                next_index = (index[0], index[1] + 1)
+            next_time = self._obj.coords[timedim].values[next_index[0], next_index[1]]
+            if not pd.isnull(next_time):
+                self._obj.coords[timedim][index[0], index[1]] = next_time
+
+        # this will leave some times still missing at the end
+        # fix the remaining missing times by replacing them with the previous time:
+        missing = np.where(pd.isnull(self._obj.coords[timedim]))
         for n in range(len(missing[0])):
-            self._obj.coords['Timestamp'][missing[0][n], missing[1][n]] = self._obj.coords['Timestamp'].values[missing[0][n], missing[1][n] - 1]
+            index = (missing[0][n], missing[1][n])
+            if index[1] == 0:
+                prev_index = (index[0] - 1, max_los)
+            else:
+                prev_index = (index[0], index[1] - 1)
+            prev_time = self._obj.coords[timedim].values[prev_index[0], prev_index[1]]
+            if not pd.isnull(prev_time):
+                self._obj.coords[timedim][index[0], index[1]] = prev_time
 
     def remove_where(self, arrays, logarr):
-        # for array in arrays:
-        #     self._obj[array] = xr.DataArray(np.where(logarr, np.nan, self._obj[array]), dims=self._obj[array].dims)
         for array in arrays:
             self._obj[array].values = np.where(logarr, np.nan, self._obj[array])
-        # if inplace:
-        #     self._obj = xr.DataArray(np.where(logarr, np.nan, self._obj), dims=self._obj.dims)
-        # else:
-        #     return xr.DataArray(np.where(logarr, np.nan, self._obj), dims=self._obj.dims)
 
-    def skewt(self, temp=None, rel_hum=None, wind=None, **kwargs):
+    def skewt(self, ranges='Range', temp='Temperature', dewpoint=None, rel_hum='Relative Humidity',
+              temp_units='K', wind=None, **kwargs):
         from metpy.plots import SkewT
         if not 'col' in kwargs.keys() and not 'row' in kwargs.keys():
-            if temp is None:
-                temp = 'Temperature'
-            if rel_hum is None:
-                rel_hum = 'Relative Humidity'
+            # get unused dimensions
+            unused = list(self._obj[temp].dims)
+            if ranges in unused:
+                unused.remove(ranges)
             # convert range (m) to hectopascals
-            hpascals = 1013.25 * np.exp(-self._obj.coords['Range'] / 7)
+            hpascals = 1013.25 * np.exp(-self._obj.coords[ranges] / 7)
+            # return hpascals
+            #return hpascals
             # convert temperature from Kelvins to Celsius
-            tempC = self._obj[temp] - 273.15
-            # estimate dewpoint from relative humidity
-            dewpoints = self._obj[temp] - ((100 - self._obj[rel_hum]) / 5) - 273.15
+            #tempC = self._obj[temp] - 273.15
+            if temp_units == 'K':
+                tempK = self._obj[temp].drop(unused)
+                tempC = tempK - 273.15
+            else:
+                tempC = self._obj[temp].drop(unused)
+                tempK = tempC + 273.15
+
+            if dewpoint is None:
+                # estimate dewpoint from relative humidity
+                dewpoints = tempK - ((100 - self._obj[rel_hum].drop(unused)) / 5) - 273.15
+            else:
+                dewpoints = self._obj[dewpoint].drop(unused)
+
             skew = SkewT()
+            #return tempC
             skew.plot(hpascals, tempC, 'r')
             skew.plot(hpascals, dewpoints, 'g')
             skew.plot_dry_adiabats()
             skew.plot_moist_adiabats()
             if not wind is None:
-                u = -self._obj[wind].sel(Component='y')
-                v = -self._obj[wind].sel(Component='x')
+                u = self._obj[wind].sel(Component='x').drop(unused)
+                v = self._obj[wind].sel(Component='y').drop(unused)
                 skew.plot_barbs(hpascals, u, v, xloc=.9)
             # skew.plot_mixing_lines()
-            # skew.ax.set_ylim(1100, 200)
+            # skew.ax.set_ylim(1100, 100)
         else:
             if not wind is None:
                 skewtdat = xr.concat([self._obj['Temperature'], self._obj['Relative Humidity'],
-                                      -self._obj[wind].sel(Component='y').drop('Component'),
-                                      -self._obj[wind].sel(Component='x').drop('Component')],
+                                      self._obj[wind].sel(Component='x').drop('Component'),
+                                      self._obj[wind].sel(Component='y').drop('Component')],
                                      'measure')
                 skewtdat.coords['measure'] = ['Temperature', 'Relative Humidity', 'windx', 'windy']
             else:
@@ -219,12 +258,16 @@ class ProfileDataset(object):
 
             # skewtdat
             sk1 = xr.plot.FacetGrid(skewtdat, **kwargs)
+            #return sk1
             # need to make the subplot tuples
 
             for ax in sk1.axes.flat:
                 ax.axis('off')
 
+            #return sk1.axes.flat
+            #return len(sk1.axes.flat)
             splots = range(len(sk1.axes.flat))
+            #return splots
             splot_dims = sk1.axes.shape
             splot_tuples = []
             for i in splots:

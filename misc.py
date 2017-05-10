@@ -13,82 +13,74 @@ import statsmodels.api as sm
 
 def lidar_from_csv(rws, scans=None, location=None, scan_id=None, lidar=None, loc=None):
     # create a lidar object from Nathan's csv files
-    # Timestamp,Configuration ID,Scan ID,LOS ID,Azimuth,Elevation,Range [m],RWS [m/s],DRWS [m/s],CNR [db],Confidence Index [%],Mean Error,Status
     csv = pd.read_csv(rws)
+
+    # organize the data
     profile_vars = ['LOS ID', 'Configuration ID', 'Azimuth [°]', 'Elevation [°]']
-    #profile_vars2 = ['scan', 'LOS ID', 'Timestamp', 'Configuration ID', 'Azimuth [°]', 'Elevation [°]']
-    #profile_vars = ['Configuration ID', 'Azimuth [°]', 'Elevation [°]']
-
-
-
-    # get the data
     data = csv.drop(profile_vars, 1).pivot(index='Timestamp', columns='Range [m]')
     data.index = pd.to_datetime(data.index)
 
-    # get the profiles
-    profiles = csv[['Timestamp', 'LOS ID']].drop_duplicates()
-    # don't want a weird multi-index that includes LOS ID
-    profiles.index = pd.DatetimeIndex(profiles['Timestamp'])
+    # get the individual profiles
+    #profiles = csv[['Timestamp', 'LOS ID']].drop_duplicates()
+    #profiles.index = pd.DatetimeIndex(profiles['Timestamp'])
 
-    # new!
-    profile_vars.append('Timestamp')
+    # these fields will be variables in the xarray object
+    # remove columns that don't exist in the csv file (for example, if not using the whole radial wind data)
     measurement_vars = ['RWS [m/s]', 'DRWS [m/s]', 'CNR [db]', 'Confidence Index [%]', 'Mean Error', 'Status']
+    measurement_vars = list(set(measurement_vars) & set(csv.columns))
+
+    # get profile-specific variables
+    profile_vars.append('Timestamp')
     csv_profs = csv[profile_vars].groupby('Timestamp').agg(lambda x: x.iloc[0])
-    #csv_profs.reset_index(inplace=True)
-    #csv_profs['Timestamp'] = pd.to_datetime(csv_profs['Timestamp'])
-    #return csv_profs
 
     h1 = {}
     coords = {'Timestamp': ('Timestamp', data.index), 'Range [m]': data.columns.levels[1]}
     if lidar is not None:
-        coords['lidar'] = [lidar]
+        coords['Lidar'] = [lidar]
         if loc is not None:
-            coords['latitude'] = ('lidar', [loc[0]])
-            coords['longitude'] = ('lidar', [loc[1]])
+            coords['latitude'] = ('Lidar', [loc[0]])
+            coords['longitude'] = ('Lidar', [loc[1]])
     profile_vars.remove('Timestamp')  # get rid of 'Timestamp'
-    #csv_profs2 = csv_profs.pivot(index='scan', columns='LOS ID')
-    #coords = {'scan': csv_profs['scan'].unique(), 'LOS ID': range(nlos), 'Range [m]': data.columns.levels[1]}
-    #profile_vars.remove('LOS ID')
-    #profile_vars.remove('scan')
-    #return csv_profs['scan']
-    #data['scan'] = csv_profs['scan'].values
-    #data['LOS ID'] = csv_profs['LOS ID'].values
-    #data.set_index(['scan', 'LOS ID'], inplace=True)
 
     # get the scan info
     if scans is not None:
         scan_xml = xml.etree.ElementTree.parse(scans).getroot()
         # in real life, we should search for the scan with the given id (if one is given) and get the info for that scan
-        scan = scan_xml[0][1][2][0].attrib
+        scan_info = scan_xml[0][1][2][0].attrib
+        # add the prefix 'scan_' to all the
+
     else:
         scan = None
 
 
     for scan_type in profile_vars:
         coords[scan_type] = ('Timestamp', csv_profs[scan_type])
-        #coords[scan_type] = (('scan', 'LOS ID'), csv_profs2[scan_type])
     for level in measurement_vars:
         h1[level] = (('Timestamp', 'Range [m]'), xr.DataArray(data[level]))
-        #h1[level] = (('Range [m]', 'scan', 'LOS ID'), xr.DataArray(data[level]).unstack('dim_0'))
-        #h1[level] = (('dim_0', 'Range [m]'), xr.DataArray(data[level]))
-    #return h1
-    #return coords
-    xarray = xr.Dataset(h1, coords=coords, attrs={'scan': scan})
-    xarray.rename({'RWS [m/s]': 'RWS', 'DRWS [m/s]': 'DRWS', 'CNR [db]': 'CNR',
-                   'Confidence Index [%]': 'Confidence Index', 'Range [m]': 'Range',
+
+    xarray = xr.Dataset(h1, coords=coords, attrs=scan_info)
+    xarray.rename({'RWS [m/s]': 'RWS', 'DRWS [m/s]': 'DRWS', 'CNR [db]': 'CNR', 'Range [m]': 'Range',
                    'Azimuth [°]': 'Azimuth', 'Elevation [°]': 'Elevation'}, inplace=True)
-    xarray['Status'] = xarray['Status'].astype(bool)
+
+    # set the units
     xarray['RWS'].attrs['units'] = 'm/s'
     xarray['DRWS'].attrs['units'] = 'm/s'
-    xarray['CNR'].attrs['units'] = 'db'
-    xarray['Confidence Index'].attrs['units'] = 'percent'
+    xarray['CNR'].attrs['units'] = 'dB'
     xarray.coords['Range'].attrs['units'] = 'm'
     xarray.coords['Azimuth'].attrs['units'] = 'degrees'
     xarray.coords['Elevation'].attrs['units'] = 'degrees'
+
+    if 'Confidence Index [%]' in measurement_vars:
+        xarray.rename({'Confidence Index [%]': 'Confidence Index'}, inplace=True)
+        xarray['Confidence Index'].attrs['units'] = 'percent'
+
+    if 'Status' in measurement_vars:
+        xarray['Status'] = xarray['Status'].astype(bool)
+
     return xarray
 
 
-def mr_from_csv(file, scan='Zenith'):
+def mr_from_csv(file, scan='Zenith', resample=None, mrname=None, **kwargs):
     # read file
     f = open(file, "r")
     lines = f.readlines()
@@ -144,13 +136,25 @@ def mr_from_csv(file, scan='Zenith'):
     mrtimes = xr.DataArray(mrdf['Date/Time']).unstack('dim_0')
     mrds = xr.Dataset({'Measurement': mrxr, 'Date/Time': mrtimes})
     mrds['DataQuality'] = xr.DataArray(mrdf['DataQuality']).unstack('dim_0')
-    mrds.coords['dim_1'] = map(float, mrxr.coords['dim_1'].values)
+    mrds.coords['dim_1'] = mrxr.coords['dim_1'].values.astype(float)
     mrds.rename({'400': 'Record Type', 'dim_1': 'Range'}, inplace=True)
     mrds.coords['Record Type'] = names
     mrds.coords['Range'].attrs['units'] = 'km'
     mrds['Measurement'].attrs['units'] = record_unit_dict
     mrds.set_coords('Date/Time', inplace=True)
-    return mrds
+
+    if mrname is not None:
+        mrds = mrds.expand_dims('Radiometer')
+        mrds.coords['Radiometer'] = [mrname]
+        # loc=None
+        # if loc is not None:
+        #     mrds.coords['latitude'] = ('lidar', [loc[0]])
+        #     mrds.coords['longitude'] = ('lidar', [loc[1]])
+
+    if resample is None:
+        return mrds
+    else:
+        return mrds.rasp.nd_resample('5T', 'Date/Time', 'scan').rasp.split_array('Measurement', 'Record Type')
 
 
 def wind_regression(wdf, elevation=75, max_se=1):
@@ -242,3 +246,61 @@ def skewt(data, splots, ranges, temp=None, rel_hum=None, **kwargs):
         skew.plot_barbs(hpascals, u, v, xloc=.9)
     # skew.plot_mixing_lines()
     # skew.ax.set_ylim(1100, 200)
+
+def weather_balloon(fname):
+    # get metadata
+    fo = open(fname, 'r')
+    lines = fo.readlines()
+    fo.close()
+    # header_end = np.where(np.equal(lines, '\r\n'))
+    header_end = np.where([line == '\r\n' for line in lines])[0][0]
+    lines = lines[0:header_end]
+    lines = [line.strip() for line in lines]
+    metadata = {}
+    for line in lines:
+        parts = line.split(' : ')
+        key = parts[0].strip()
+        value = parts[1]
+        metadata[key] = value
+    # get the date
+    bdate = pd.to_datetime(metadata['Flight'].split(', ')[1])
+    btime = pd.to_datetime(metadata['Flight'].split(', ')[2])
+    bstart = btime.replace(year=bdate.year, month=bdate.month, day=bdate.day)
+
+    # read data
+    b1 = pd.read_csv('../data/balloon/FLT_010117_0000_PROC.txt.TXT', sep=';', index_col=False, skiprows=header_end + 1)
+
+    # add the starting date to the timestamp field
+    b1['Time Stamp'] = str(bdate.date()) + ' ' + b1['Time Stamp']
+    b1['Time Stamp'] = pd.to_datetime(b1['Time Stamp'], format='%Y-%m-%d %H:%M:%S')
+
+    # cumulative sum dates to correct the date changes
+    time_lower = (b1['Time Stamp'].values[1:] - b1['Time Stamp'].values[0:-1]).astype(float) < 0
+    elapsed_time = (b1['Elapsed Time'].values[1:] - b1['Elapsed Time'].values[0:-1]) >= 0
+    days_ahead = np.cumsum(np.logical_and(time_lower, elapsed_time))
+    days_ahead = np.insert(days_ahead, 0, 0)
+    days_ahead = pd.to_timedelta(days_ahead, unit='D')
+    b1['Time Stamp'] += days_ahead
+
+    b1.set_index('Time Stamp', inplace=True)
+
+    # xrb = xr.Dataset(b1, attrs=metadata)
+    xrb = xr.Dataset(b1)
+    xrb = xrb.expand_dims('Station').expand_dims('Profile')
+    xrb.set_coords(
+        ['Elapsed Time', 'Geopotential Height', 'Corrected Elevation', 'Latitude', 'Longitude', 'Geometric Height'],
+        inplace=True)
+
+    # set up the station coordinates
+    xrb.coords['Station'] = ('Station', [metadata['Station Name (WMO #)']])
+    xrb.coords['Station Height'] = ('Station', [metadata['Station Height']])
+    xrb.coords['Station Latitude'] = ('Station', [metadata['Station Latitude']])
+    xrb.coords['Station Longitude'] = ('Station', [metadata['Station Longitude']])
+
+    # set up the profile coordinates
+    xrb.coords['Profile'] = ('Profile', [bstart])
+    xrb.coords['Flight'] = ('Profile', [metadata['Flight']])
+    xrb.coords['File Name'] = ('Profile', [metadata['File Name']])
+    xrb.coords['Observer Initial'] = ('Profile', [metadata['Observer Initial']])
+    xrb.coords['Version #'] = ('Profile', [metadata['Version #']])
+    return xrb
