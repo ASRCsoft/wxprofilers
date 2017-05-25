@@ -1,17 +1,17 @@
-# -*- coding: UTF-8 -*-
+# -*- coding: utf-8 -*-
 import xml.etree.ElementTree
 import numpy as np
 import pandas as pd
 import xarray as xr
 import matplotlib.pyplot as plt
-import profileTimeSeries as pts
+# import rasppy.profileTimeSeries as pts
 import math
 import io
 import re
 import statsmodels.api as sm
 
 
-def lidar_from_csv(rws, scans=None, location=None, scan_id=None, lidar=None, loc=None):
+def lidar_from_csv(rws, scans=None, scan_id=None, wind=None, lidar=None, loc=None):
     # create a lidar object from Nathan's csv files
     csv = pd.read_csv(rws)
 
@@ -19,10 +19,6 @@ def lidar_from_csv(rws, scans=None, location=None, scan_id=None, lidar=None, loc
     profile_vars = ['LOS ID', 'Configuration ID', 'Azimuth [°]', 'Elevation [°]']
     data = csv.drop(profile_vars, 1).pivot(index='Timestamp', columns='Range [m]')
     data.index = pd.to_datetime(data.index)
-
-    # get the individual profiles
-    #profiles = csv[['Timestamp', 'LOS ID']].drop_duplicates()
-    #profiles.index = pd.DatetimeIndex(profiles['Timestamp'])
 
     # these fields will be variables in the xarray object
     # remove columns that don't exist in the csv file (for example, if not using the whole radial wind data)
@@ -35,6 +31,8 @@ def lidar_from_csv(rws, scans=None, location=None, scan_id=None, lidar=None, loc
 
     h1 = {}
     coords = {'Timestamp': ('Timestamp', data.index), 'Range [m]': data.columns.levels[1]}
+    if wind is not None:
+        coords['Component'] = ('Component', ['x', 'y', 'z'])
     if lidar is not None:
         coords['Lidar'] = [lidar]
         if loc is not None:
@@ -63,20 +61,59 @@ def lidar_from_csv(rws, scans=None, location=None, scan_id=None, lidar=None, loc
                    'Azimuth [°]': 'Azimuth', 'Elevation [°]': 'Elevation'}, inplace=True)
 
     # set the units
+    xarray['RWS'].attrs['long_name'] = 'radial wind speed'
     xarray['RWS'].attrs['units'] = 'm/s'
+    xarray['DRWS'].attrs['long_name'] = 'deviation of radial wind speed'
     xarray['DRWS'].attrs['units'] = 'm/s'
+    xarray['CNR'].attrs['long_name'] = 'carrier to noise ratio'
     xarray['CNR'].attrs['units'] = 'dB'
-    xarray.coords['Range'].attrs['units'] = 'm'
-    xarray.coords['Azimuth'].attrs['units'] = 'degrees'
-    xarray.coords['Elevation'].attrs['units'] = 'degrees'
+    xarray.coords['Azimuth'].attrs['standard_name'] = 'sensor_azimuth_angle'
+    xarray.coords['Azimuth'].attrs['units'] = 'degree'
+    xarray.coords['Elevation'].attrs['long_name'] = 'elevation'
+    xarray.coords['Elevation'].attrs['units'] = 'degree'
 
     if 'Confidence Index [%]' in measurement_vars:
-        xarray.rename({'Confidence Index [%]': 'Confidence Index'}, inplace=True)
-        xarray['Confidence Index'].attrs['units'] = 'percent'
+        xarray.rename({'Confidence Index [%]': 'Confidence'}, inplace=True)
+        xarray['Confidence'].attrs['standard_name'] = 'confidence index'
+        xarray['Confidence'].attrs['units'] = 'percent'
 
     if 'Status' in measurement_vars:
         xarray['Status'] = xarray['Status'].astype(bool)
+        xarray['Status'].attrs['long_name'] = 'status'
 
+    if 'Mean Error' in measurement_vars:
+        xarray.rename({'Mean Error': 'Error'}, inplace=True)
+        xarray['Error'].attrs['long_name'] = 'mean error'
+
+    if not wind is None:
+        wind_csv = pd.read_csv(wind)
+        wind_csv['TimeStamp'] = pd.to_datetime(wind_csv['TimeStamp'])
+
+        wind_extra = ['Azimuth [°]', 'Elevation [°]', 'CNR [db]', 'Confidence index [%]']
+        wind_small = wind_csv.drop(wind_extra, 1).pivot(index='TimeStamp', columns='Range [m]')
+        #return wind_small
+
+        # # this would be totally stupid
+        # wind_long = wind_csv.drop(wind_extra, 1).pivot(index=)
+
+        # use this to find the corresponding timestamps (it works I swear!)
+        row_indices = np.searchsorted(xarray.coords['Timestamp'].values,
+                                      wind_small.index.values)
+        col_indices = np.searchsorted(xarray.coords['Range'].values,
+                                      wind_small.columns.levels[1].values)
+        
+        xarray['Windspeed'] = xr.DataArray(np.full(tuple(xarray.dims.values()), np.nan, float),
+                                           dims=tuple(xarray.dims.keys()))
+        xarray['Windspeed'][dict(Component=0, Range=col_indices, Timestamp=row_indices)] = -wind_small['Y-Wind Speed [m/s]'].transpose()
+        xarray['Windspeed'][dict(Component=1, Range=col_indices, Timestamp=row_indices)] = -wind_small['X-Wind Speed [m/s]'].transpose()
+        xarray['Windspeed'][dict(Component=2, Range=col_indices, Timestamp=row_indices)] = -wind_small['Z-Wind Speed [m/s]'].transpose()
+        xarray['Windspeed'].attrs['long_name'] = 'wind speed'
+        xarray['Windspeed'].attrs['units'] = 'm/s'
+
+    xarray.coords['Range'].attrs['standard_name'] = 'height'
+    xarray.coords['Range'].attrs['units'] = 'm'
+    xarray.coords['Timestamp'].attrs['standard_name'] = 'time'
+        
     return xarray
 
 

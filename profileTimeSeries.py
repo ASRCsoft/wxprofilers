@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
-import misc as rasp
+import rasppy.misc as rasp
 
 # rewriting as an xarray module, following the guidelines here:
 # http://xarray.pydata.org/en/stable/internals.html#extending-xarray
@@ -65,12 +65,12 @@ class ProfileDataset(object):
             winds.ix[rows, ('z', rws_cols[col])] = -zs[col_indices]
 
         windxr = xr.DataArray(winds).unstack('dim_1')#.rename({'dim_0': 'profile'})
-        #return windxr
-        range_attrs = self._obj.coords['Range'].attrs
-        self._obj['Windspeed'] = windxr
-        self._obj.coords['Range'].attrs = range_attrs
-        self._obj['Windspeed'].attrs['units'] = 'm/s'
-        return True
+        return windxr
+        # range_attrs = self._obj.coords['Range'].attrs
+        # self._obj['Windspeed'] = windxr
+        # self._obj.coords['Range'].attrs = range_attrs
+        # self._obj['Windspeed'].attrs['units'] = 'm/s'
+        # return True
 
     def estimate_wind(self, method='Leosphere', **kwargs):
         if method=='Leosphere':
@@ -301,6 +301,23 @@ class RaspAccessor(object):
         if ax is None:
             ax = plt.subplot(111)
         ax.barbs(X, Y, U, V)
+
+    def plot_profile(self, y=None, **kwargs):
+        xs = self._obj.values.transpose()
+        if y is None:
+            dimname = self._obj.dims[0]
+        else:
+            dimname = y
+        ys = self._obj[dimname].values
+        plt.plot(xs, ys, **kwargs)
+        plt.xlabel(self._obj.name)
+        plt.ylabel(dimname)
+        # if legend:
+        #     # plt.legend(lines, self.index)
+        #     ax.legend(self.index)
+
+    def _plot_profile(self, ax=None, **kwargs):
+        fgr = xr.plot.FacetGrid(skewtdat, **kwargs)
 
     def remove_where(self, logarr, inplace=False):
         if inplace:

@@ -1,5 +1,6 @@
-import profileTimeSeries as pts
+import rasppy.profileTimeSeries
 #import windProfiles
 #import profileInstrument
 #import lidar
-import misc
+import rasppy.misc
+import rasppy.cape
