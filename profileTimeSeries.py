@@ -56,8 +56,10 @@ class ProfileDataset(object):
         for n, i in enumerate(which_skipped):
             status_mat[i + n] = status_mat[i - 5 + n]
         # return status_mat
-        is_good = (status_mat[0:-4,:] + status_mat[1:-3,:] + status_mat[2:-2,:] +
-                   status_mat[3:-1,:] + status_mat[4:,:]) > 4.9
+        # is_good = (status_mat[0:-4,:] + status_mat[1:-3,:] + status_mat[2:-2,:] +
+        #            status_mat[3:-1,:] + status_mat[4:,:]) > 4.9
+        is_good = np.stack([status_mat[0:-4,:], status_mat[1:-3,:], status_mat[2:-2,:],
+                            status_mat[3:-1,:], status_mat[4:,:]]).all(axis=0)
         # return is_good
 
         good_indices = np.where(is_good)

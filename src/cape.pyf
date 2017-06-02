@@ -1,0 +1,35 @@
+!    -*- f90 -*-
+! Note: the context of this file is case sensitive.
+
+python module cape ! in 
+    interface  ! in :cape
+        subroutine getcape(nk,p_in,t_in,td_in,cape,cin) ! in :cape:cape.f90
+            integer, optional,intent(in),check(len(p_in)>=nk),depend(p_in) :: nk=len(p_in)
+            real dimension(nk),intent(in) :: p_in
+            real dimension(nk),intent(in),depend(nk) :: t_in
+            real dimension(nk),intent(in),depend(nk) :: td_in
+            real intent(out) :: cape
+            real intent(out) :: cin
+        end subroutine getcape
+        function getqvs(p,t) ! in :cape:cape.f90
+            real :: p
+            real :: t
+            real :: getqvs
+        end function getqvs
+        function getqvi(p,t) ! in :cape:cape.f90
+            real :: p
+            real :: t
+            real :: getqvi
+        end function getqvi
+        function getthe(p,t,td,q) ! in :cape:cape.f90
+            real :: p
+            real :: t
+            real :: td
+            real :: q
+            real :: getthe
+        end function getthe
+    end interface 
+end python module cape
+
+! This file was auto-generated with f2py (version:2).
+! See http://cens.ioc.ee/projects/f2py2e/
