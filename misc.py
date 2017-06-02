@@ -11,7 +11,7 @@ import re
 import statsmodels.api as sm
 
 
-def lidar_from_csv(rws, scans=None, scan_id=None, wind=None, lidar=None, loc=None):
+def lidar_from_csv(rws, scans=None, scan_id=None, wind=None, attrs=None):
     # create a lidar object from Nathan's csv files
     csv = pd.read_csv(rws)
 
@@ -33,11 +33,6 @@ def lidar_from_csv(rws, scans=None, scan_id=None, wind=None, lidar=None, loc=Non
     coords = {'Timestamp': ('Timestamp', data.index), 'Range [m]': data.columns.levels[1]}
     if wind is not None:
         coords['Component'] = ('Component', ['x', 'y', 'z'])
-    if lidar is not None:
-        coords['Lidar'] = [lidar]
-        if loc is not None:
-            coords['latitude'] = ('Lidar', [loc[0]])
-            coords['longitude'] = ('Lidar', [loc[1]])
     profile_vars.remove('Timestamp')  # get rid of 'Timestamp'
 
     # get the scan info
@@ -45,8 +40,13 @@ def lidar_from_csv(rws, scans=None, scan_id=None, wind=None, lidar=None, loc=Non
         scan_xml = xml.etree.ElementTree.parse(scans).getroot()
         # in real life, we should search for the scan with the given id (if one is given) and get the info for that scan
         scan_info = scan_xml[0][1][2][0].attrib
-        # add the prefix 'scan_' to all the
-
+        # add prefix 'scan' to all scan keys
+        scan_info = { 'scan_' + key: value for (key, value) in scan_info.items() }
+        # add scan info to the lidar attributes
+        if attrs is None:
+            attrs = scan_info
+        else:
+            attrs.update(scan_info)
     else:
         scan = None
 
@@ -56,7 +56,7 @@ def lidar_from_csv(rws, scans=None, scan_id=None, wind=None, lidar=None, loc=Non
     for level in measurement_vars:
         h1[level] = (('Timestamp', 'Range [m]'), xr.DataArray(data[level]))
 
-    xarray = xr.Dataset(h1, coords=coords, attrs=scan_info)
+    xarray = xr.Dataset(h1, coords=coords, attrs=attrs)
     xarray.rename({'RWS [m/s]': 'RWS', 'DRWS [m/s]': 'DRWS', 'CNR [db]': 'CNR', 'Range [m]': 'Range',
                    'Azimuth [°]': 'Azimuth', 'Elevation [°]': 'Elevation'}, inplace=True)
 
@@ -102,11 +102,12 @@ def lidar_from_csv(rws, scans=None, scan_id=None, wind=None, lidar=None, loc=Non
         col_indices = np.searchsorted(xarray.coords['Range'].values,
                                       wind_small.columns.levels[1].values)
         
-        xarray['Windspeed'] = xr.DataArray(np.full(tuple(xarray.dims.values()), np.nan, float),
-                                           dims=tuple(xarray.dims.keys()))
-        xarray['Windspeed'][dict(Component=0, Range=col_indices, Timestamp=row_indices)] = -wind_small['Y-Wind Speed [m/s]'].transpose()
-        xarray['Windspeed'][dict(Component=1, Range=col_indices, Timestamp=row_indices)] = -wind_small['X-Wind Speed [m/s]'].transpose()
-        xarray['Windspeed'][dict(Component=2, Range=col_indices, Timestamp=row_indices)] = -wind_small['Z-Wind Speed [m/s]'].transpose()
+        wspeed_dims = ('Component', 'Timestamp', 'Range')
+        xarray['Windspeed'] = xr.DataArray(np.full(tuple( xarray.dims[dim] for dim in wspeed_dims ), np.nan, float),
+                                           dims=wspeed_dims)
+        xarray['Windspeed'][dict(Component=0, Range=col_indices, Timestamp=row_indices)] = -wind_small['Y-Wind Speed [m/s]']
+        xarray['Windspeed'][dict(Component=1, Range=col_indices, Timestamp=row_indices)] = -wind_small['X-Wind Speed [m/s]']
+        xarray['Windspeed'][dict(Component=2, Range=col_indices, Timestamp=row_indices)] = -wind_small['Z-Wind Speed [m/s]']
         xarray['Windspeed'].attrs['long_name'] = 'wind speed'
         xarray['Windspeed'].attrs['units'] = 'm/s'
 
@@ -117,7 +118,7 @@ def lidar_from_csv(rws, scans=None, scan_id=None, wind=None, lidar=None, loc=Non
     return xarray
 
 
-def mr_from_csv(file, scan='Zenith', resample=None, mrname=None, **kwargs):
+def mwr_from_csv(file, scan='Zenith', resample=None, attrs=None, resample_args={'keep_attrs': True}):
     # read file
     f = open(file, "r")
     lines = f.readlines()
@@ -138,7 +139,9 @@ def mr_from_csv(file, scan='Zenith', resample=None, mrname=None, **kwargs):
             csv_lines = [lines[m] for m in np.nditer(where_is_type)]
             csv_lines.insert(0, lines[n])
             csv_string = ''.join(csv_lines)
-            csv = io.StringIO(csv_string.decode('utf-8'))
+            # this is the python 2 version-- not supported!
+            # csv = io.StringIO(csv_string.decode('utf-8'))
+            csv = io.StringIO(csv_string)
             df = pd.read_csv(csv)
             csvs[str(types[n])] = df
 
@@ -171,7 +174,7 @@ def mr_from_csv(file, scan='Zenith', resample=None, mrname=None, **kwargs):
     mrdf2 = mrdf.drop(['Record', 'DataQuality', 'Date/Time'], axis=1)
     mrxr = xr.DataArray(mrdf2).unstack('dim_0')
     mrtimes = xr.DataArray(mrdf['Date/Time']).unstack('dim_0')
-    mrds = xr.Dataset({'Measurement': mrxr, 'Date/Time': mrtimes})
+    mrds = xr.Dataset({'Measurement': mrxr, 'Date/Time': mrtimes}, attrs=attrs)
     mrds['DataQuality'] = xr.DataArray(mrdf['DataQuality']).unstack('dim_0')
     mrds.coords['dim_1'] = mrxr.coords['dim_1'].values.astype(float)
     mrds.rename({'400': 'Record Type', 'dim_1': 'Range'}, inplace=True)
@@ -180,18 +183,16 @@ def mr_from_csv(file, scan='Zenith', resample=None, mrname=None, **kwargs):
     mrds['Measurement'].attrs['units'] = record_unit_dict
     mrds.set_coords('Date/Time', inplace=True)
 
-    if mrname is not None:
-        mrds = mrds.expand_dims('Radiometer')
-        mrds.coords['Radiometer'] = [mrname]
-        # loc=None
-        # if loc is not None:
-        #     mrds.coords['latitude'] = ('lidar', [loc[0]])
-        #     mrds.coords['longitude'] = ('lidar', [loc[1]])
+    # if mrname is not None:
+    #     mrds = mrds.expand_dims('Radiometer')
+    #     mrds.coords['Radiometer'] = [mrname]
 
     if resample is None:
         return mrds
     else:
-        return mrds.rasp.nd_resample('5T', 'Date/Time', 'scan').rasp.split_array('Measurement', 'Record Type')
+        mwrds2 = mrds.rasp.nd_resample('5T', 'Date/Time', 'scan').rasp.split_array('Measurement', 'Record Type')
+        mwrds2.attrs = attrs
+        return mwrds2
 
 
 def wind_regression(wdf, elevation=75, max_se=1):
@@ -240,16 +241,16 @@ def wind_regression(wdf, elevation=75, max_se=1):
     return resultsdf
 
 
-def recursive_resample(ds, rule, coord, dim, coords):
+def recursive_resample(ds, rule, coord, dim, coords, **kwargs):
     if len(coords) == 0:
-        return ds.swap_dims({dim: coord}).resample(rule, coord)
+        return ds.swap_dims({dim: coord}).resample(rule, coord, **kwargs)
     else:
         arrays = []
         cur_coord = coords[0]
         next_coords = coords[1:]
         for coordn in ds.coords[cur_coord].values:
             ds2 = ds.sel(**{cur_coord: coordn})
-            arrays.append(recursive_resample(ds2, rule, coord, dim, next_coords))
+            arrays.append(recursive_resample(ds2, rule, coord, dim, next_coords, **kwargs))
 
         return xr.concat(arrays, ds.coords[cur_coord])
 

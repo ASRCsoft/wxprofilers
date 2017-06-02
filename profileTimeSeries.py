@@ -1,12 +1,12 @@
 '''
 Extensions of xarray Datasets and DataArrays
 '''
-import math
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import rasppy.misc as rasp
+import rasppy.cape as cape
 
 # rewriting as an xarray module, following the guidelines here:
 # http://xarray.pydata.org/en/stable/internals.html#extending-xarray
@@ -22,40 +22,84 @@ class ProfileDataset(object):
             # raise an error
             pass
 
-        el = float(self._obj.attrs['elevation_angle_deg']) * math.pi / 180
+        # elevation
+        el = float(self._obj.attrs['scan_elevation_angle_deg']) * np.pi / 180
 
-        # create the multiIndex ProfileTimeSeries
-        #rws_cols = self.data[rws].columns
-        rws_cols = self._obj.coords['Range'].values
-        iterables = [['x', 'y', 'z'], rws_cols]
-        mult_index = pd.MultiIndex.from_product(iterables, names=['Component', 'Range'])
-        winds = pd.DataFrame(index=self._obj.coords['Timestamp'].to_index(), columns=mult_index, dtype='float')
+        # Occasionally the lidar will 'skip a beat', that is, skip a
+        # LOS for god only knows what reason. When this happens
+        # Leosphere's code just uses the previous measurement from
+        # that LOS. I'm going to re-jigger this rws matrix to acheive
+        # the same thing, basically tricking my code into thinking the
+        # LOS was not skipped at all.
+        los_diff = self._obj.coords['LOS ID'][1:].values - self._obj.coords['LOS ID'][:-1].values
+        skipped = np.logical_not(np.in1d(los_diff, [1, -4]))
+        skipped = np.insert(skipped, 0, False)
+        nskipped = np.sum(skipped)
+        longer_shape = self._obj[rws].values.shape
+        longer_shape = (longer_shape[0] + nskipped, longer_shape[1])
+        rws_mat = np.full(longer_shape, np.nan, float)
+        cum_skipped = np.cumsum(skipped)
+        index_map = np.array(range(self._obj[rws].values.shape[0])) + cum_skipped
+        #return self._obj[rws].values
+        rws_mat[index_map] = self._obj[rws].values
+        #return rws_mat
+        which_skipped = np.where(skipped)[0]
+        # return which_skipped
+        for n, i in enumerate(which_skipped):
+            rws_mat[i + n] = rws_mat[i - 5 + n]
+        # return rws_mat
 
-        #status_mat = self.data[status].as_matrix()
-        status_mat = self._obj[status].values.astype(int)
+        # also need to re-jigger the status matrix a bit
+        status_mat = np.full(longer_shape, np.nan, int)
+        status_mat[index_map] = self._obj[status].values.astype(int)
+        # return status_mat
+        for n, i in enumerate(which_skipped):
+            status_mat[i + n] = status_mat[i - 5 + n]
+        # return status_mat
         is_good = (status_mat[0:-4,:] + status_mat[1:-3,:] + status_mat[2:-2,:] +
                    status_mat[3:-1,:] + status_mat[4:,:]) > 4.9
+        # return is_good
 
         good_indices = np.where(is_good)
         # add 4 columns for the 4 removed earlier
         good_indices = (good_indices[0] + 4, good_indices[1])
-        row_los = self._obj.coords['LOS ID'][good_indices[0]].astype(int).values
-        #return row_los
-
-        rws_mat = pd.DataFrame(self._obj[rws].values, index=self._obj.coords['Timestamp'].to_index(), columns=rws_cols)
+        los_ids = self._obj.coords['LOS ID'].astype(int).values
+        los_ids = np.insert(los_ids, which_skipped, los_ids[which_skipped - 1] + 1 % 5)
+        # for i in which_skipped: # add the missing LOS IDs
+        #     los_ids = np.insert(los_ids, i, los_ids[i - 1] + 1 % 5)
+        row_los = los_ids[good_indices[0]]
+        # return row_los
+        rws_cols = self._obj.coords['Range'].values
         good_cols = rws_cols[good_indices[1]]
-        los0 = rws_mat.lookup(rws_mat.index[good_indices[0] - row_los], good_cols)
-        los1 = rws_mat.lookup(rws_mat.index[good_indices[0] - ((row_los + 4) % 5)], good_cols)
-        los2 = rws_mat.lookup(rws_mat.index[good_indices[0] - ((row_los + 3) % 5)], good_cols)
-        los3 = rws_mat.lookup(rws_mat.index[good_indices[0] - ((row_los + 2) % 5)], good_cols)
-        los4 = rws_mat.lookup(rws_mat.index[good_indices[0] - ((row_los + 1) % 5)], good_cols)
 
-        # these numbers are weird but should match the Lidar (but
-        xs = (los0 - los2) / (2 * math.cos(el))
-        ys = (los1 - los3) / (2 * math.cos(el))
-        zs = (los0 + los1 + los2 + los3) * .789 / (4 * math.sin(el)) + los4 * .211
 
-        # YAAAAAAAAAAAAAAAAAAAAAAAYYYYYYYYYYYYYYYY it works!!!!!!!!!!
+
+
+        # create a multiIndex data frame to hold the data
+        iterables = [['x', 'y', 'z'], rws_cols]
+        mult_index = pd.MultiIndex.from_product(iterables, names=['Component', 'Range'])
+        time_index = self._obj.coords['Timestamp'].to_index()
+        for n, i in enumerate(which_skipped):
+            time_index = time_index.insert(i + n, time_index[i - 1 + n] + pd.Timedelta('1us'))
+        # return time_index
+        winds = pd.DataFrame(index=time_index, columns=mult_index, dtype='float')
+        rws_df = pd.DataFrame(rws_mat, index=time_index, columns=rws_cols)
+
+        # get the corresponding LOS values for each wind estimate
+        los0 = rws_df.lookup(rws_df.index[good_indices[0] - row_los], good_cols)
+        los1 = rws_df.lookup(rws_df.index[good_indices[0] - ((row_los + 4) % 5)], good_cols)
+        los2 = rws_df.lookup(rws_df.index[good_indices[0] - ((row_los + 3) % 5)], good_cols)
+        los3 = rws_df.lookup(rws_df.index[good_indices[0] - ((row_los + 2) % 5)], good_cols)
+        los4 = rws_df.lookup(rws_df.index[good_indices[0] - ((row_los + 1) % 5)], good_cols)
+        
+        # got these weights from a maximum likelihood calculation
+        weight0to3 = np.sin(el) / (4 * np.sin(el) ** 2 + 1)
+        weight4 = 1 / (4 * np.sin(el) ** 2 + 1)
+        xs = (los0 - los2) / (2 * np.cos(el))
+        ys = (los1 - los3) / (2 * np.cos(el))
+        zs = weight0to3 * (los0 + los1 + los2 + los3) + weight4 * los4
+
+        # put the results in the right place
         for col in range(self._obj[rws].shape[1]):
             col_indices = np.where(good_indices[1] == col)
             rows = good_indices[0][col_indices]
@@ -64,13 +108,8 @@ class ProfileDataset(object):
             winds.ix[rows, ('y', rws_cols[col])] = -xs[col_indices]
             winds.ix[rows, ('z', rws_cols[col])] = -zs[col_indices]
 
-        windxr = xr.DataArray(winds).unstack('dim_1')#.rename({'dim_0': 'profile'})
+        windxr = xr.DataArray(winds.iloc[index_map]).unstack('dim_1')#.rename({'dim_0': 'profile'})
         return windxr
-        # range_attrs = self._obj.coords['Range'].attrs
-        # self._obj['Windspeed'] = windxr
-        # self._obj.coords['Range'].attrs = range_attrs
-        # self._obj['Windspeed'].attrs['units'] = 'm/s'
-        # return True
 
     def estimate_wind(self, method='Leosphere', **kwargs):
         if method=='Leosphere':
@@ -79,6 +118,26 @@ class ProfileDataset(object):
             self.estimate_wind_discrete(**kwargs)
         else:
             pass
+
+    def _estimate_cape(self, hpascals='hpascals', temp='Temperature'):
+        hpascals = self._obj.coords['hpascals'].values
+        tempK = self._obj['Temperature'].values
+        tempC = tempK - 273.15
+        rel_hum = self._obj['Relative Humidity'].values
+        dewpoints = tempK - ((100 - rel_hum) / 5) - 273.15
+        return cape.getcape(nk=self._obj.dims['Range'], p_in=hpascals, t_in=tempC, td_in=dewpoints)[0]
+
+    def estimate_cape(self, hpascals='hpascals', temp='Temperature'):
+        ntimes = len(self._obj.coords['Date/Time'].values)
+        cape = [ self._obj.isel(**{'Date/Time': t}).rasp._estimate_cape() for t in range(ntimes) ]
+        return xr.DataArray(cape, {'Date/Time': self._obj.coords['Date/Time']})
+        # self
+        # hpascals = self._obj.coords['hpascals'].values
+        # tempK = self._obj['Temperature'].values
+        # tempC = tempK - 273.15
+        # rel_hum = self._obj['Relative Humidity'].values
+        # dewpoints = tempK - ((100 - rel_hum) / 5) - 273.15
+        # return cape.getcape(nk=self._obj.dims['Range'], p_in=hpascals, t_in=tempC, td_in=dewpoints)[0]
 
     def write_raob(self, time, filename, timedim='Time', temp='Temperature', rh='Relative Humidity',
                   vap_den=None, liq_wat=None, wind=True, wspeed=True, line_terminator='\n'):
@@ -147,10 +206,10 @@ class ProfileDataset(object):
         # exit()
         df.to_csv(filename, na_rep=-999, index=False, mode='a', line_terminator=line_terminator)
 
-    def nd_resample(self, rule, coord, dim):
+    def nd_resample(self, rule, coord, dim, **kwargs):
         coords = list(self._obj.coords[coord].dims)
         coords.remove(dim)
-        return rasp.recursive_resample(self._obj, rule, coord, dim, coords)
+        return rasp.recursive_resample(self._obj, rule, coord, dim, coords, **kwargs)
 
     def split_array(self, array, dim):
         ds = xr.Dataset()
@@ -284,6 +343,11 @@ class RaspAccessor(object):
     def __init__(self, xarray_obj):
         self._obj = xarray_obj
 
+    def nd_resample(self, rule, coord, dim):
+        coords = list(self._obj.coords[coord].dims)
+        coords.remove(dim)
+        return rasp.recursive_resample(self._obj, rule, coord, dim, coords)
+
     def plot_barbs(self, x=None, y=None, components=('x', 'y'), resample=None, ax=None):
         if resample is not None:
             l1 = self._obj.resample(resample, 'Timestamp')
@@ -296,11 +360,29 @@ class RaspAccessor(object):
         xvals = [mdates.date2num(pd.Timestamp(val)) for val in l1.coords[x].values]
         yvals = l1.coords[y]
         X, Y = np.meshgrid(xvals, yvals)
-        U = l1.sel(Component=components[0]).transpose()
-        V = l1.sel(Component=components[1]).transpose()
-        if ax is None:
+        U = l1.sel(Component=components[0])
+        V = l1.sel(Component=components[1])
+        if len(U.dims) > 2:
+            U = U.squeeze()
+        if len(V.dims) > 2:
+            V = V.squeeze()
+        # there should only be two dimensions!
+        assert len(U.dims) == 2
+        assert len(V.dims) == 2
+        # y values should be the first dimension
+        if U.dims[0] != y:
+            U = U.transpose()
+        if V.dims[0] != y:
+            V = V.transpose()
+        new_axis = ax is None
+        if new_axis:
             ax = plt.subplot(111)
+            xtick_locator = mdates.AutoDateLocator()
+            xtick_formatter = mdates.AutoDateFormatter(xtick_locator)
         ax.barbs(X, Y, U, V)
+        if new_axis:
+            ax.xaxis.set_major_locator(xtick_locator)
+            ax.xaxis.set_major_formatter(xtick_formatter)
 
     def plot_profile(self, y=None, **kwargs):
         xs = self._obj.values.transpose()
