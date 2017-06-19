@@ -49,7 +49,7 @@
                                       !  results,larger number makes code 
                                       !  go faster)
 
-    integer, parameter :: source = 2    ! Source parcel:
+    integer, parameter :: source = 1    ! Source parcel:
                                         ! 1 = surface
                                         ! 2 = most unstable (max theta-e)
                                         ! 3 = mixed-layer (specify ml_depth)

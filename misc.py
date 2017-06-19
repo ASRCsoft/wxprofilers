@@ -1,13 +1,11 @@
 # -*- coding: utf-8 -*-
+"""Functions for importing data"""
+import io, re
 import xml.etree.ElementTree
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import xarray as xr
-import matplotlib.pyplot as plt
-# import rasppy.profileTimeSeries as pts
-import math
-import io
-import re
 import statsmodels.api as sm
 
 
@@ -57,8 +55,9 @@ def lidar_from_csv(rws, scans=None, scan_id=None, wind=None, attrs=None):
         h1[level] = (('Timestamp', 'Range [m]'), xr.DataArray(data[level]))
 
     xarray = xr.Dataset(h1, coords=coords, attrs=attrs)
-    xarray.rename({'RWS [m/s]': 'RWS', 'DRWS [m/s]': 'DRWS', 'CNR [db]': 'CNR', 'Range [m]': 'Range',
-                   'Azimuth [°]': 'Azimuth', 'Elevation [°]': 'Elevation'}, inplace=True)
+    xarray.rename({'Timestamp': 'Time', 'RWS [m/s]': 'RWS', 'DRWS [m/s]': 'DRWS', 'CNR [db]': 'CNR',
+                   'Range [m]': 'Range', 'LOS ID': 'LOS', 'Azimuth [°]': 'Azimuth', 'Elevation [°]': 'Elevation'},
+                  inplace=True)
 
     # set the units
     xarray['RWS'].attrs['long_name'] = 'radial wind speed'
@@ -97,12 +96,12 @@ def lidar_from_csv(rws, scans=None, scan_id=None, wind=None, attrs=None):
         # wind_long = wind_csv.drop(wind_extra, 1).pivot(index=)
 
         # use this to find the corresponding timestamps (it works I swear!)
-        row_indices = np.searchsorted(xarray.coords['Timestamp'].values,
+        row_indices = np.searchsorted(xarray.coords['Time'].values,
                                       wind_small.index.values)
         col_indices = np.searchsorted(xarray.coords['Range'].values,
                                       wind_small.columns.levels[1].values)
         
-        wspeed_dims = ('Component', 'Timestamp', 'Range')
+        wspeed_dims = ('Component', 'Time', 'Range')
         xarray['Windspeed'] = xr.DataArray(np.full(tuple( xarray.dims[dim] for dim in wspeed_dims ), np.nan, float),
                                            dims=wspeed_dims)
         xarray['Windspeed'][dict(Component=0, Range=col_indices, Timestamp=row_indices)] = -wind_small['Y-Wind Speed [m/s]']
@@ -113,7 +112,7 @@ def lidar_from_csv(rws, scans=None, scan_id=None, wind=None, attrs=None):
 
     xarray.coords['Range'].attrs['standard_name'] = 'height'
     xarray.coords['Range'].attrs['units'] = 'm'
-    xarray.coords['Timestamp'].attrs['standard_name'] = 'time'
+    xarray.coords['Time'].attrs['standard_name'] = 'time'
         
     return xarray
 
@@ -183,15 +182,18 @@ def mwr_from_csv(file, scan='Zenith', resample=None, attrs=None, resample_args={
     mrds['Measurement'].attrs['units'] = record_unit_dict
     mrds.set_coords('Date/Time', inplace=True)
 
-    # if mrname is not None:
-    #     mrds = mrds.expand_dims('Radiometer')
-    #     mrds.coords['Radiometer'] = [mrname]
+    mrds.rename({'Date/Time': 'Time'}, inplace=True)
 
     if resample is None:
         return mrds
     else:
-        mwrds2 = mrds.rasp.nd_resample('5T', 'Date/Time', 'scan').rasp.split_array('Measurement', 'Record Type')
-        mwrds2.attrs = attrs
+        mwrds2 = mrds.rasp.nd_resample('5T', 'Time', 'scan').rasp.split_array('Measurement', 'Record Type')
+        mwrds2['Temperature'].attrs['units'] = 'K'
+        mwrds2['Vapor Density'].attrs['units'] = '?'
+        mwrds2['Relative Humidity'].attrs['units'] = '%'
+        mwrds2['Liquid'].attrs['units'] = 'g/m^3'
+        if not attrs is None:
+            mwrds2.attrs = attrs
         return mwrds2
 
 
@@ -199,9 +201,9 @@ def wind_regression(wdf, elevation=75, max_se=1):
     ncols = wdf.shape[1]
     colnames = wdf.columns
     los = wdf.index.get_level_values('LOS ID')
-    az = los * math.pi / 2
-    el = np.repeat(math.pi * 75 / 180, len(los))
-    el[los == 4] = math.pi / 2
+    az = los * np.pi / 2
+    el = np.repeat(np.pi * 75 / 180, len(los))
+    el[los == 4] = np.pi / 2
 
     x = np.sin(az) * np.cos(el)
     y = np.cos(az) * np.cos(el)

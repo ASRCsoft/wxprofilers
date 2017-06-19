@@ -17,8 +17,8 @@ class ProfileDataset(object):
     def __init__(self, xarray_obj):
         self._obj = xarray_obj
 
-    def estimate_wind_leosphere(self, rws='RWS', status='Status'):
-        if (self._obj[status] is None or self._obj[rws] is None or 'LOS ID' not in self._obj.coords.keys()):
+    def estimate_wind_leosphere(self, rws='RWS', status='Status', los='LOS'):
+        if (self._obj[status] is None or self._obj[rws] is None or los not in self._obj.coords.keys()):
             # raise an error
             pass
 
@@ -31,7 +31,7 @@ class ProfileDataset(object):
         # that LOS. I'm going to re-jigger this rws matrix to acheive
         # the same thing, basically tricking my code into thinking the
         # LOS was not skipped at all.
-        los_diff = self._obj.coords['LOS ID'][1:].values - self._obj.coords['LOS ID'][:-1].values
+        los_diff = self._obj.coords[los][1:].values - self._obj.coords[los][:-1].values
         skipped = np.logical_not(np.in1d(los_diff, [1, -4]))
         skipped = np.insert(skipped, 0, False)
         nskipped = np.sum(skipped)
@@ -65,7 +65,7 @@ class ProfileDataset(object):
         good_indices = np.where(is_good)
         # add 4 columns for the 4 removed earlier
         good_indices = (good_indices[0] + 4, good_indices[1])
-        los_ids = self._obj.coords['LOS ID'].astype(int).values
+        los_ids = self._obj.coords[los].astype(int).values
         los_ids = np.insert(los_ids, which_skipped, los_ids[which_skipped - 1] + 1 % 5)
         # for i in which_skipped: # add the missing LOS IDs
         #     los_ids = np.insert(los_ids, i, los_ids[i - 1] + 1 % 5)
@@ -122,17 +122,17 @@ class ProfileDataset(object):
             pass
 
     def _estimate_cape(self, hpascals='hpascals', temp='Temperature'):
-        hpascals = self._obj.coords['hpascals'].values
-        tempK = self._obj['Temperature'].values
+        hpascals = self._obj.coords[hpascals].values
+        tempK = self._obj[temp].values
         tempC = tempK - 273.15
         rel_hum = self._obj['Relative Humidity'].values
         dewpoints = tempK - ((100 - rel_hum) / 5) - 273.15
         return cape.getcape(nk=self._obj.dims['Range'], p_in=hpascals, t_in=tempC, td_in=dewpoints)[0]
 
     def estimate_cape(self, hpascals='hpascals', temp='Temperature'):
-        ntimes = len(self._obj.coords['Date/Time'].values)
-        cape = [ self._obj.isel(**{'Date/Time': t}).rasp._estimate_cape() for t in range(ntimes) ]
-        return xr.DataArray(cape, {'Date/Time': self._obj.coords['Date/Time']})
+        ntimes = len(self._obj.coords['Time'].values)
+        cape = [ self._obj.isel(**{'Time': t}).rasp._estimate_cape() for t in range(ntimes) ]
+        return xr.DataArray(cape, {'Time': self._obj.coords['Time']})
         # self
         # hpascals = self._obj.coords['hpascals'].values
         # tempK = self._obj['Temperature'].values
@@ -350,15 +350,23 @@ class RaspAccessor(object):
         coords.remove(dim)
         return rasp.recursive_resample(self._obj, rule, coord, dim, coords)
 
-    def plot_barbs(self, x=None, y=None, components=('x', 'y'), resample=None, ax=None):
+    def plot_barbs(self, x=None, y=None, components=('x', 'y'), resample=None, resampley=None, ax=None):
+        if x is None:
+            x = 'Time'
         if resample is not None:
-            l1 = self._obj.resample(resample, 'Timestamp')
+            l1 = self._obj.resample(resample, x)
         else:
             l1 = self._obj
-        if x is None:
-            x = 'Timestamp'
         if y is None:
             y = 'Range'
+        if resampley is not None:
+            maxy = l1.coords[y].max()
+            nbreaks = int(maxy / resampley) + 2
+            bins = np.array(range(nbreaks)) * [resampley]
+            labels = (bins[1:] + bins[:-1]) / 2
+            l1 = l1.groupby_bins(group=y, bins=bins, labels=labels).mean(dim=y)
+            bin_name = y + '_bins'
+            l1 = l1.rename({bin_name: y})
         xvals = [mdates.date2num(pd.Timestamp(val)) for val in l1.coords[x].values]
         yvals = l1.coords[y]
         X, Y = np.meshgrid(xvals, yvals)
@@ -383,19 +391,30 @@ class RaspAccessor(object):
             xtick_formatter = mdates.AutoDateFormatter(xtick_locator)
         ax.barbs(X, Y, U, V)
         if new_axis:
+            ax.set_ylabel(y)
             ax.xaxis.set_major_locator(xtick_locator)
             ax.xaxis.set_major_formatter(xtick_formatter)
 
     def plot_profile(self, y=None, **kwargs):
-        xs = self._obj.values.transpose()
         if y is None:
             dimname = self._obj.dims[0]
         else:
             dimname = y
         ys = self._obj[dimname].values
+        xs = self._obj#.values#.transpose()
+        if self._obj.dims[0] != dimname:
+            dims_order = [dimname]
+            for d in self._obj.dims:
+                if d != dimname:
+                    dims_order.append(d)
+            xs = xs.transpose(*dims_order)
         plt.plot(xs, ys, **kwargs)
         plt.xlabel(self._obj.name)
         plt.ylabel(dimname)
+        if len(xs.dims) > 1:
+            dim2 = xs.dims[1]
+            labels = [ dim2 + ' = ' + str(x) for x in xs.coords[dim2].values ]
+            plt.legend(labels)
         # if legend:
         #     # plt.legend(lines, self.index)
         #     ax.legend(self.index)

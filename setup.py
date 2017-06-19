@@ -5,9 +5,11 @@ from distutils.core import Extension
 
 setup(name='raspPy',
       version='0.1',
-      description='weather stuff',
+      description='Utilities for working with weather profile data with xarray',
       author='William May',
-      author_email='williamcmay@live.com'
+      author_email='williamcmay@live.com',
+      test_suite='nose.collector',
+      tests_require=['nose']
 )
 
 
