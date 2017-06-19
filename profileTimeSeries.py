@@ -80,7 +80,7 @@ class ProfileDataset(object):
         # create a multiIndex data frame to hold the data
         iterables = [['x', 'y', 'z'], rws_cols]
         mult_index = pd.MultiIndex.from_product(iterables, names=['Component', 'Range'])
-        time_index = self._obj.coords['Timestamp'].to_index()
+        time_index = self._obj.coords['Time'].to_index()
         for n, i in enumerate(which_skipped):
             time_index = time_index.insert(i + n, time_index[i - 1 + n] + pd.Timedelta('1us'))
         # return time_index
@@ -223,18 +223,18 @@ class ProfileDataset(object):
     def los_format(self, replace_nat=True):
         # switch to LOS format and print the new xarray object
         lidar2 = self._obj.copy()
-        lidar2['scan'] = ('Timestamp', np.cumsum(lidar2['LOS ID'].values == 0))
+        lidar2['scan'] = ('Time', np.cumsum(lidar2['LOS ID'].values == 0))
         lidar2.set_coords('scan', inplace=True)
         lidar2 = lidar2.set_index(profile=['scan', 'LOS ID'])
-        lidar2.coords['profile'] = ('Timestamp', lidar2.coords['profile'].to_index())
-        lidar2.swap_dims({'Timestamp': 'profile'}, inplace=True)
+        lidar2.coords['profile'] = ('Time', lidar2.coords['profile'].to_index())
+        lidar2.swap_dims({'Time': 'profile'}, inplace=True)
         lidar2 = lidar2.unstack('profile')
         if replace_nat:
             lidar2.rasp.replace_nat()
 
         return lidar2
 
-    def replace_nat(self, timedim='Timestamp'):
+    def replace_nat(self, timedim='Time'):
         max_los = self._obj.coords['LOS ID'].max()
         # get all missing except for the last scan
         missing = np.where(pd.isnull(self._obj.coords[timedim][0:-1, :]))
