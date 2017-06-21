@@ -188,7 +188,7 @@ class ProfileDataset(object):
         df['RH'] = np.round(self._obj[rh].sel(**{timedim: time}), 1)
         # df['WIND'] = np.nan
         # df['SPEED'] = np.nan
-        df['GPM'] = map(int, np.round(1000 * levels))
+        df['GPM'] = list(map(int, np.round(1000 * levels)))
         df['PRES'] = np.round(1013.25 * np.exp(-df['GPM'] / 7000), 1)
         if vap_den is not None: df['VapDen'] = np.round(self._obj[vap_den].sel(**{timedim: time}), 3)
         if liq_wat is not None: df['LiqWat'] = np.round(self._obj[liq_wat].sel(**{timedim: time}), 3)
