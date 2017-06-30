@@ -16,13 +16,13 @@ def lidar_from_csv(rws, scans=None, scan_id=None, wind=None, attrs=None):
     """create a lidar object from Nathan's csv files"""
 
     # start with the scan info
-    if scans is not None:
+    if scans is not None and len(scan_xml) > 0:
         scan_xml = xml.etree.ElementTree.parse(scans).getroot()
         # in real life, we should search for the scan with the given
         # id (if one is given) and get the info for that scan
         if len(scan_xml) > 1:
             raise MultipleScansException('lidar_from_csv does not support multiple scanning modes in one file (yet)')
-        
+
         scan_info = scan_xml[0][1][2][0].attrib
         # add prefix 'scan' to all scan keys
         scan_info = { 'scan_' + key: value for (key, value) in scan_info.items() }
