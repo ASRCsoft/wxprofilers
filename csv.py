@@ -109,6 +109,12 @@ def lidar_from_csv(rws, scans=None, scan_id=None, wind=None, attrs=None):
         wind_small = wind_csv.drop(wind_extra, 1).pivot(index='TimeStamp', columns='Range [m]')
         #return wind_small
 
+        # remove reconstructed wind data that's outside the range of
+        # the rws data (this is such a terrible data storage system,
+        # yuck)
+        rws_max = ds.coords['Time'].values.max()
+        wind_small = wind_small[wind_small.index <= rws_max]
+
         # # this would be totally stupid
         # wind_long = wind_csv.drop(wind_extra, 1).pivot(index=)
 
