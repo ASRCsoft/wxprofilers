@@ -4,7 +4,7 @@ from distutils.core import setup
 from distutils.core import Extension
 
 setup(name='raspPy',
-      version='0.1',
+      version='0.1dev',
       description='Utilities for working with weather profile data with xarray',
       author='William May',
       author_email='williamcmay@live.com',
