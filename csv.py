@@ -50,48 +50,49 @@ def lidar_from_csv(rws, scans=None, scan_id=None, wind=None, attrs=None):
     # get profile-specific variables
     profile_vars.append('Timestamp')
     csv_profs = csv[profile_vars].groupby('Timestamp').agg(lambda x: x.iloc[0])
-    csv_profs.reset_index(inplace=True)
+    # csv_profs.reset_index(inplace=True)
 
     h1 = {}
     coords = {'Timestamp': ('Timestamp', data.index), 'Range [m]': data.columns.levels[1]}
     if wind is not None:
         coords['Component'] = ('Component', ['x', 'y', 'z'])
-    # profile_vars.remove('Timestamp')  # get rid of 'Timestamp'
+    # get rid of 'Timestamp' since it's already in the coords variable
+    profile_vars.remove('Timestamp')
 
     for scan_type in profile_vars:
         coords[scan_type] = ('Timestamp', csv_profs[scan_type])
     for level in measurement_vars:
         h1[level] = (('Timestamp', 'Range [m]'), xr.DataArray(data[level]))
 
-    xarray = xr.Dataset(h1, coords=coords, attrs=attrs)
-    xarray.rename({'Timestamp': 'Time', 'RWS [m/s]': 'RWS', 'DRWS [m/s]': 'DRWS', 'CNR [db]': 'CNR',
+    ds = xr.Dataset(h1, coords=coords, attrs=attrs)
+    ds.rename({'Timestamp': 'Time', 'RWS [m/s]': 'RWS', 'DRWS [m/s]': 'DRWS', 'CNR [db]': 'CNR',
                    'Range [m]': 'Range', 'LOS ID': 'LOS', 'Azimuth [°]': 'Azimuth', 'Elevation [°]': 'Elevation'},
                   inplace=True)
 
     # set the units
-    xarray['RWS'].attrs['long_name'] = 'radial wind speed'
-    xarray['RWS'].attrs['units'] = 'm/s'
-    xarray['DRWS'].attrs['long_name'] = 'deviation of radial wind speed'
-    xarray['DRWS'].attrs['units'] = 'm/s'
-    xarray['CNR'].attrs['long_name'] = 'carrier to noise ratio'
-    xarray['CNR'].attrs['units'] = 'dB'
-    xarray.coords['Azimuth'].attrs['standard_name'] = 'sensor_azimuth_angle'
-    xarray.coords['Azimuth'].attrs['units'] = 'degree'
-    xarray.coords['Elevation'].attrs['long_name'] = 'elevation'
-    xarray.coords['Elevation'].attrs['units'] = 'degree'
+    ds['RWS'].attrs['long_name'] = 'radial wind speed'
+    ds['RWS'].attrs['units'] = 'm/s'
+    ds['DRWS'].attrs['long_name'] = 'deviation of radial wind speed'
+    ds['DRWS'].attrs['units'] = 'm/s'
+    ds['CNR'].attrs['long_name'] = 'carrier to noise ratio'
+    ds['CNR'].attrs['units'] = 'dB'
+    ds.coords['Azimuth'].attrs['standard_name'] = 'sensor_azimuth_angle'
+    ds.coords['Azimuth'].attrs['units'] = 'degree'
+    ds.coords['Elevation'].attrs['long_name'] = 'elevation'
+    ds.coords['Elevation'].attrs['units'] = 'degree'
 
     if 'Confidence Index [%]' in measurement_vars:
-        xarray.rename({'Confidence Index [%]': 'Confidence'}, inplace=True)
-        xarray['Confidence'].attrs['standard_name'] = 'confidence index'
-        xarray['Confidence'].attrs['units'] = 'percent'
+        ds.rename({'Confidence Index [%]': 'Confidence'}, inplace=True)
+        ds['Confidence'].attrs['standard_name'] = 'confidence index'
+        ds['Confidence'].attrs['units'] = 'percent'
 
     if 'Status' in measurement_vars:
-        xarray['Status'] = xarray['Status'].astype(bool)
-        xarray['Status'].attrs['long_name'] = 'status'
+        ds['Status'] = ds['Status'].astype(bool)
+        ds['Status'].attrs['long_name'] = 'status'
 
     if 'Mean Error' in measurement_vars:
-        xarray.rename({'Mean Error': 'Error'}, inplace=True)
-        xarray['Error'].attrs['long_name'] = 'mean error'
+        ds.rename({'Mean Error': 'Error'}, inplace=True)
+        ds['Error'].attrs['long_name'] = 'mean error'
 
     if not wind is None:
         wind_csv = pd.read_csv(wind)
@@ -105,25 +106,27 @@ def lidar_from_csv(rws, scans=None, scan_id=None, wind=None, attrs=None):
         # wind_long = wind_csv.drop(wind_extra, 1).pivot(index=)
 
         # use this to find the corresponding timestamps (it works I swear!)
-        row_indices = np.searchsorted(xarray.coords['Time'].values,
+        # return ds
+        row_indices = np.searchsorted(ds.coords['Time'].values,
                                       wind_small.index.values)
-        col_indices = np.searchsorted(xarray.coords['Range'].values,
+        col_indices = np.searchsorted(ds.coords['Range'].values,
                                       wind_small.columns.levels[1].values)
         
         wspeed_dims = ('Component', 'Time', 'Range')
-        xarray['Windspeed'] = xr.DataArray(np.full(tuple( xarray.dims[dim] for dim in wspeed_dims ), np.nan, float),
+        ds['Windspeed'] = xr.DataArray(np.full(tuple( ds.dims[dim] for dim in wspeed_dims ), np.nan, float),
                                            dims=wspeed_dims)
-        xarray['Windspeed'][dict(Component=0, Range=col_indices, Timestamp=row_indices)] = -wind_small['Y-Wind Speed [m/s]']
-        xarray['Windspeed'][dict(Component=1, Range=col_indices, Timestamp=row_indices)] = -wind_small['X-Wind Speed [m/s]']
-        xarray['Windspeed'][dict(Component=2, Range=col_indices, Timestamp=row_indices)] = -wind_small['Z-Wind Speed [m/s]']
-        xarray['Windspeed'].attrs['long_name'] = 'wind speed'
-        xarray['Windspeed'].attrs['units'] = 'm/s'
+        # return ds, wind_small
+        ds['Windspeed'][0, row_indices, col_indices] = -wind_small['Y-Wind Speed [m/s]']
+        ds['Windspeed'][1, row_indices, col_indices] = -wind_small['X-Wind Speed [m/s]']
+        ds['Windspeed'][2, row_indices, col_indices] = -wind_small['Z-Wind Speed [m/s]']
+        ds['Windspeed'].attrs['long_name'] = 'wind speed'
+        ds['Windspeed'].attrs['units'] = 'm/s'
 
-    xarray.coords['Range'].attrs['standard_name'] = 'height'
-    xarray.coords['Range'].attrs['units'] = 'm'
-    xarray.coords['Time'].attrs['standard_name'] = 'time'
+    ds.coords['Range'].attrs['standard_name'] = 'height'
+    ds.coords['Range'].attrs['units'] = 'm'
+    ds.coords['Time'].attrs['standard_name'] = 'time'
     
-    return xarray
+    return ds
 
 
 def mwr_from_csv(file, scan='Zenith', resample=None, attrs=None, resample_args={'keep_attrs': True}):
