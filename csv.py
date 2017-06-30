@@ -12,6 +12,12 @@ class MultipleScansException(Exception):
     def __str__(self):
         return repr(self.parameter)
 
+class NoScansException(Exception):
+    def __init__(self, value):
+        self.parameter = value
+    def __str__(self):
+        return repr(self.parameter)
+
 def lidar_from_csv(rws, scans=None, scan_id=None, wind=None, attrs=None):
     """create a lidar object from Nathan's csv files"""
 
@@ -22,17 +28,16 @@ def lidar_from_csv(rws, scans=None, scan_id=None, wind=None, attrs=None):
         # id (if one is given) and get the info for that scan
         if len(scan_xml) > 1:
             raise MultipleScansException('lidar_from_csv does not support multiple scanning modes in one file (yet)')
-        if len(scan_xml) > 0:
-            scan_info = scan_xml[0][1][2][0].attrib
-            # add prefix 'scan' to all scan keys
-            scan_info = { 'scan_' + key: value for (key, value) in scan_info.items() }
-            # add scan info to the lidar attributes
-            if attrs is None:
-                attrs = scan_info
-            else:
-                attrs.update(scan_info)
+        if len(scan_xml) == 0:
+            raise NoScansException('no scans listed in the scan.xml file')
+        scan_info = scan_xml[0][1][2][0].attrib
+        # add prefix 'scan' to all scan keys
+        scan_info = { 'scan_' + key: value for (key, value) in scan_info.items() }
+        # add scan info to the lidar attributes
+        if attrs is None:
+            attrs = scan_info
         else:
-            scan = None
+            attrs.update(scan_info)
     else:
         scan = None
 
