@@ -9,6 +9,7 @@ setup(name='raspPy',
       url='https://github.com/ASRCsoft/ipas_python',
       author='William May',
       author_email='williamcmay@live.com',
+      packages=['rasppy'],
       test_suite='nose.collector',
       tests_require=['nose'],
       install_requires=[
