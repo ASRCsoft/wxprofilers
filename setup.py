@@ -6,10 +6,15 @@ from distutils.core import Extension
 setup(name='raspPy',
       version='0.1dev',
       description='Utilities for working with weather profile data with xarray',
+      url='https://github.com/ASRCsoft/ipas_python',
       author='William May',
       author_email='williamcmay@live.com',
       test_suite='nose.collector',
-      tests_require=['nose']
+      tests_require=['nose'],
+      install_requires=[
+          'xarray',
+          'metpy'
+      ]
 )
 
 
