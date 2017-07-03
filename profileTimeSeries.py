@@ -1,6 +1,7 @@
 '''
 Extensions of xarray Datasets and DataArrays
 '''
+import copy as cp
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -338,6 +339,48 @@ class ProfileDataset(object):
                 sk1.map(rasp.skewt, [0, 1, 2, 3], splots=splot_tuples, ranges=skewtdat.coords['Range'].values)
             else:
                 sk1.map(rasp.skewt, [0, 1], splots=splot_tuples, ranges=skewtdat.coords['Range'].values)
+
+    def cf_compliant(self, period='5T', shear=False):
+        """Return a dataset in cf compliant netcdf format"""
+        # lidar = rasp.lidar_from_csv(radial_file, scan_file, wind=wind_file)
+        ds = cp.copy(self._obj)
+        # remove status==0 data
+        # lidar['CNR'] = lidar['CNR'].where(lidar['Status'])
+        # lidar['DRWS'] = lidar['DRWS'].where(lidar['Status'])
+        # lidar = lidar.drop(['Status', 'Error', 'Confidence'])
+        has_wind = 'Windspeed' in ds.data_vars
+        if has_wind:
+            # set up the windspeed variables
+            ds['xwind'] = ds['Windspeed'].sel(Component='x').drop('Component')
+            ds['xwind'].attrs.pop('long_name', None)
+            ds['xwind'].attrs['standard_name'] = 'eastward_wind'
+            ds['xwind'].attrs['units'] = 'm s-1'
+            ds['ywind'] = ds['Windspeed'].sel(Component='y').drop('Component')
+            ds['ywind'].attrs.pop('long_name', None)
+            ds['ywind'].attrs['standard_name'] = 'northward_wind'
+            ds['ywind'].attrs['units'] = 'm s-1'
+            ds['vwind'] = ds['Windspeed'].sel(Component='z').drop('Component')
+            ds['vwind'].attrs.pop('long_name', None)
+            ds['vwind'].attrs['standard_name'] = 'upward_air_velocity'
+            ds['vwind'].attrs['units'] = 'm s-1'
+        ds = ds.drop('Windspeed').drop('Component')
+        ds = ds.resample(period, 'Time', keep_attrs=True)
+        # do more stuff after resampling
+        if has_wind:
+            if shear:
+                # wind shear (works better after resampling?)
+
+                # first add horizontal wind
+                ds['hwind'] = np.sqrt(ds['xwind'] ** 2 + ds['ywind'] ** 2)
+                ds['hwind'].attrs['standard_name'] = 'upward_air_velocity'
+                ds['hwind'].attrs['units'] = 'm s-1'
+                # now can get the shear
+                ds['shear'] = ds['hwind'].copy()
+                ds['shear'][:,1:] = ds['hwind'][:, 1:].values / ds['hwind'][:, :-1].values
+                ds['shear'][:,0] = np.nan
+                ds['shear'].attrs['standard_name'] = 'wind_speed_shear'
+                ds['shear'].attrs['units'] = 's-1'
+        return ds
 
 
 @xr.register_dataarray_accessor('rasp')
