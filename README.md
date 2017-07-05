@@ -1,8 +1,20 @@
 # raspPy
 Python package with utilities for Lidar and other weather profile instruments
 
+## Documentation
+[rasppy.readthedocs.io/en/latest/](http://rasppy.readthedocs.io/en/latest/)
 
-# Usage
-raspPy requires the Python package `xarray`. To use the package, put the folder in your working directory and run
+## Installation
+raspPy can be installed with pip:
 
-```import raspPy.misc```
+```bash
+pip install git+https://github.com/ASRCsoft/raspPy.git
+```
+
+## Usage
+Generate xarray/raspPy objects from lidar text files:
+
+```python
+import rasppy.convert as rasp
+lidar = rasp.lidar_from_csv('radial_wind_data.csv', scan='scan.xml', wind='reconstruction_wind_data.csv')
+```
