@@ -3,7 +3,7 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Atmospheric Profiler Time Series in Python
+raspPy: Atmospheric Profile Time Series in Python
 ==========================================
 
 raspPy is a package that extends `xarray
@@ -24,6 +24,7 @@ Contents:
 .. toctree::
    :maxdepth: 2
 
+   installation
    converting
    plotting
 
