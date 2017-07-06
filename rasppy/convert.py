@@ -60,8 +60,9 @@ def lidar_from_csv(rws, scans=None, scan_id=None, wind=None, attrs=None):
 
     # get profile-specific variables
     profile_vars.append('Timestamp')
-    csv_profs = csv[profile_vars].groupby('Timestamp').agg(lambda x: x.iloc[0])
-    # csv_profs.reset_index(inplace=True)
+    csv_profs = csv[profile_vars].drop_duplicates()
+    # should check here that each time has unique values
+    # ...
 
     h1 = {}
     coords = {'Timestamp': ('Timestamp', data.index), 'Range [m]': data.columns.levels[1]}
