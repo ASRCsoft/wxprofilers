@@ -78,8 +78,9 @@ def lidar_from_csv(rws, scans=None, scan_id=None, wind=None, attrs=None):
 
     ds = xr.Dataset(h1, coords=coords, attrs=attrs)
     ds.rename({'Timestamp': 'Time', 'RWS [m/s]': 'RWS', 'DRWS [m/s]': 'DRWS', 'CNR [db]': 'CNR',
-                   'Range [m]': 'Range', 'LOS ID': 'LOS', 'Azimuth [°]': 'Azimuth', 'Elevation [°]': 'Elevation'},
-                  inplace=True)
+               'Range [m]': 'Range', 'Configuration ID': 'Configuration', 'LOS ID': 'LOS',
+               'Azimuth [°]': 'Azimuth', 'Elevation [°]': 'Elevation'},
+              inplace=True)
 
     # set the units
     ds['RWS'].attrs['long_name'] = 'radial wind speed'
@@ -137,6 +138,8 @@ def lidar_from_csv(rws, scans=None, scan_id=None, wind=None, attrs=None):
         ds['Windspeed'][0, row_indices, col_indices] = -wind_small['Y-Wind Speed [m/s]']
         ds['Windspeed'][1, row_indices, col_indices] = -wind_small['X-Wind Speed [m/s]']
         ds['Windspeed'][2, row_indices, col_indices] = -wind_small['Z-Wind Speed [m/s]']
+        # doesn't work, nice try though:
+        # ds['Windspeed'][:, row_indices, col_indices] = -wind_small.loc[:, ['Y-Wind Speed [m/s]', 'X-Wind Speed [m/s]', 'Z-Wind Speed [m/s]']]
         ds['Windspeed'].attrs['long_name'] = 'wind speed'
         ds['Windspeed'].attrs['units'] = 'm/s'
 
