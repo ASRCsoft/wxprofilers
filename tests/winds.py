@@ -7,7 +7,6 @@ import rasppy
 
 # prepare the test data
 lidar = xr.open_dataset('test_data.nc')
-lidar.set_coords('LOS', inplace=True)
 # get rid of silly byte strings that xarray created
 lidar.coords['Component'].values = list(map(lambda x: x.decode(), lidar.coords['Component'].values))
 lidar['wspeed2'] = lidar.rasp.estimate_wind()
