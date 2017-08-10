@@ -224,9 +224,9 @@ class ProfileDataset(object):
     def los_format(self, replace_nat=True):
         # switch to LOS format and print the new xarray object
         lidar2 = self._obj.copy()
-        lidar2['scan'] = ('Time', np.cumsum(lidar2['LOS ID'].values == 0))
+        lidar2['scan'] = ('Time', np.cumsum(lidar2['LOS'].values == 0))
         lidar2.set_coords('scan', inplace=True)
-        lidar2 = lidar2.set_index(profile=['scan', 'LOS ID'])
+        lidar2 = lidar2.set_index(profile=['scan', 'LOS'])
         lidar2.coords['profile'] = ('Time', lidar2.coords['profile'].to_index())
         lidar2.swap_dims({'Time': 'profile'}, inplace=True)
         lidar2 = lidar2.unstack('profile')
@@ -236,7 +236,7 @@ class ProfileDataset(object):
         return lidar2
 
     def replace_nat(self, timedim='Time'):
-        max_los = self._obj.coords['LOS ID'].max()
+        max_los = self._obj.coords['LOS'].max()
         # get all missing except for the last scan
         missing = np.where(pd.isnull(self._obj.coords[timedim][0:-1, :]))
         # replace missing times with the next time:
