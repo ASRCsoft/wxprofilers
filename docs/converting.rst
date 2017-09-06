@@ -1,11 +1,29 @@
 Converting data
 ===============
 
-..
-   .. ipython:: python
+In order to use the raspPy and xarray tools, data must be stored as
+xarray objects. Functions for converting data to xarray format are in
+the ``rasppy.convert`` module.
 
-      data = np.random.rand(4, 3)
-      locs = ['IA', 'IL', 'IN']
-      times = pd.date_range('2000-01-01', periods=4)
-      foo = xr.DataArray(data, coords=[times, locs], dims=['time', 'space'])
-      foo
+.. ipython:: python
+
+   import rasppy.convert as rasp
+
+Lidar csv files
+---------------
+
+.. ipython:: python
+	     
+   lidar = rasp.lidar_from_csv(rws='20170225_whole_radial_wind_data.csv',
+	                       scans='20170225_scan.xml',
+                               wind='20170225_reconstruction_wind_data.csv')
+   lidar
+
+
+Microwave radiometer csv files
+------------------------------
+
+.. ipython:: python
+	     
+   mwr = rasp.mwr_from_csv('2017-02-25_00-04-11_lv2.csv', resample='5T')
+   mwr

@@ -4,12 +4,12 @@
    contain the root `toctree` directive.
 
 raspPy: Atmospheric Profile Time Series in Python
-==========================================
+=================================================
 
 raspPy is a package that extends `xarray
 <http://xarray.pydata.org/en/stable/index.html>`_ with utilities for
-working with atmospheric profile time series data, with code
-specifically for lidar and microwave radiometer data.
+working with atmospheric profile time series, with code specifically
+for lidar and microwave radiometer data.
 
 The package includes two sets of code:
 

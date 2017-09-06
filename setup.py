@@ -14,7 +14,8 @@ setup(name='raspPy',
       tests_require=['nose'],
       install_requires=[
           'xarray',
-          'metpy'
+          'metpy',
+          'statsmodels'
       ]
 )
 
