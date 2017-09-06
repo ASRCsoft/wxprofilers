@@ -18,19 +18,35 @@ class NoScansException(Exception):
     def __str__(self):
         return repr(self.parameter)
 
+class ScanNotFoundException(Exception):
+    def __init__(self, value):
+        self.parameter = value
+    def __str__(self):
+        return repr(self.parameter)
+
 def lidar_from_csv(rws, scans=None, scan_id=None, wind=None, attrs=None):
     """create a lidar object from Nathan's csv files"""
 
     # start with the scan info
     if scans is not None:
-        scan_xml = xml.etree.ElementTree.parse(scans).getroot()
-        # in real life, we should search for the scan with the given
-        # id (if one is given) and get the info for that scan
-        if len(scan_xml) > 1:
-            raise MultipleScansException('lidar_from_csv does not support multiple scanning modes in one file (yet)')
-        if len(scan_xml) == 0:
+        scan_file_xml = xml.etree.ElementTree.parse(scans).getroot()
+        attrs = {'xml': scan_file_xml}
+        if len(scan_file_xml) == 0:
             raise NoScansException('no scans listed in the scan.xml file')
-        scan_info = scan_xml[0][1][2][0].attrib
+        elif scan_id is not None:
+            # get the scan ID's
+            scan_ids = list(map(lambda x: int(x.get('id')), scan_file_xml.findall('lidar_scan')))
+            # get the corresponding scan info
+            try:
+                scan_index = scan_ids.index(scan_id)
+            except ValueError:
+                raise ScanNotFoundException('scan not found in scan.xml file')
+            scan_xml = scan_file_xml[scan_index]
+        else:
+            if len(scan_xml) > 1:
+                raise MultipleScansException('must provide a scan_id if file contains multiple scanning modes')
+            scan_xml = scan_file_xml[0]
+        scan_info = scan_xml[1][2][0].attrib
         # add prefix 'scan' to all scan keys
         scan_info = { 'scan_' + key: value for (key, value) in scan_info.items() }
         # add scan info to the lidar attributes
@@ -47,6 +63,10 @@ def lidar_from_csv(rws, scans=None, scan_id=None, wind=None, attrs=None):
               'DRWS [m/s]': float, 'CNR [db]': float, 'Confidence Index [%]': float,
               'Mean Error': float, 'Status': bool}
     csv = pd.read_csv(rws, parse_dates=['Timestamp'], dtype=dtypes)
+    if scan_id is not None:
+        csv = csv.loc[csv['Scan ID'] == scan_id]
+        # check that there's still data here:
+        # ...
 
     # organize the data
     profile_vars = ['LOS ID', 'Configuration ID', 'Azimuth [°]', 'Elevation [°]']
