@@ -30,7 +30,6 @@ def lidar_from_csv(rws, scans=None, scan_id=None, wind=None, attrs=None):
     # start with the scan info
     if scans is not None:
         scan_file_xml = xml.etree.ElementTree.parse(scans).getroot()
-        attrs = {'xml': scan_file_xml}
         if len(scan_file_xml) == 0:
             raise NoScansException('no scans listed in the scan.xml file')
         elif scan_id is not None:
@@ -43,7 +42,7 @@ def lidar_from_csv(rws, scans=None, scan_id=None, wind=None, attrs=None):
                 raise ScanNotFoundException('scan not found in scan.xml file')
             scan_xml = scan_file_xml[scan_index]
         else:
-            if len(scan_xml) > 1:
+            if len(scan_file_xml) > 1:
                 raise MultipleScansException('must provide a scan_id if file contains multiple scanning modes')
             scan_xml = scan_file_xml[0]
         scan_info = scan_xml[1][2][0].attrib
