@@ -18,8 +18,8 @@ class ProfileDataset(object):
     def __init__(self, xarray_obj):
         self._obj = xarray_obj
 
-    def estimate_wind_leosphere(self, rws='RWS', status='Status', los='LOS', filtered=True):
-        if (self._obj[status] is None or self._obj[rws] is None or los not in self._obj.coords.keys()):
+    def estimate_wind_leosphere(self, rws='RWS', filter='Status', los='LOS'):
+        if ((filter is not None and self._obj[filter] is None) or self._obj[rws] is None or los not in self._obj.coords.keys()):
             # raise an error
             pass
 
@@ -50,10 +50,10 @@ class ProfileDataset(object):
             rws_mat[i + n] = rws_mat[i - 5 + n]
         # return rws_mat
 
-        if filtered:
+        if filter is not None:
             # also need to re-jigger the status matrix a bit
             status_mat = np.full(longer_shape, np.nan, int)
-            status_mat[index_map] = self._obj[status].values.astype(int)
+            status_mat[index_map] = self._obj[filter].values.astype(int)
             for n, i in enumerate(which_skipped):
                 status_mat[i + n] = status_mat[i - 5 + n]
             is_good = np.stack([status_mat[0:-4,:], status_mat[1:-3,:], status_mat[2:-2,:],
