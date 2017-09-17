@@ -58,7 +58,7 @@ def lidar_from_csv(rws, scans=None, scan_id=None, wind=None, attrs=None):
 
     dtypes = {'Timestamp': str, 'Configuration ID': int,
               'Scan ID': int, 'LOS ID': int, 'Azimuth [°]': float,
-              'Elevation [°]': float, 'Range [m]': int, 'RWS [m/s]': float,
+              'Elevation [°]': float, 'Range [m]': float, 'RWS [m/s]': float,
               'DRWS [m/s]': float, 'CNR [db]': float, 'Confidence Index [%]': float,
               'Mean Error': float, 'Status': bool}
     csv = pd.read_csv(rws, parse_dates=['Timestamp'], dtype=dtypes)
