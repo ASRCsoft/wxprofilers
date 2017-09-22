@@ -182,12 +182,15 @@ def mwr_from_csv(file, scan='Zenith', resample=None, attrs=None, resample_args={
     # organize into csv's
     csvs = {}
     for n in np.nditer(headers):
+        # accept the type number plus 1-4
         acceptable_types = np.array([1, 2, 3, 4])
         acceptable_types += types[n]
         is_type = [types[m] in acceptable_types for m in range(len(types))]
         where_is_type = np.where(is_type)
         if where_is_type[0].size > 0:
+            # get the data lines of the csv
             csv_lines = [lines[m] for m in np.nditer(where_is_type)]
+            # insert the corresponding csv header line
             csv_lines.insert(0, lines[n])
             csv_string = ''.join(csv_lines)
             # this is the python 2 version-- not supported!
@@ -197,6 +200,7 @@ def mwr_from_csv(file, scan='Zenith', resample=None, attrs=None, resample_args={
             csvs[str(types[n])] = df
 
     record_types = csvs['100']['Title'].values
+    # get the names and units out of the 'record type' strings
     names = [ re.split(' \(', record_type)[0] for record_type in record_types ]
     units = [ re.sub('.*\(|\).*', '', record_type) for record_type in record_types ]
     record_unit_dict = {}
@@ -223,22 +227,34 @@ def mwr_from_csv(file, scan='Zenith', resample=None, attrs=None, resample_args={
     mrdf['scan'] = np.floor_divide(range(mrdf.shape[0]), 16)
     mrdf.set_index(['scan', '400', 'LV2 Processor'], inplace=True)
     mrdf2 = mrdf.drop(['Record', 'DataQuality', 'Date/Time'], axis=1)
+    # mrdf2 = mrdf.drop(['DataQuality', 'Date/Time'], axis=1)
+    # temp = mrdf2.loc[mrdf2['']]
     mrxr = xr.DataArray(mrdf2).unstack('dim_0')
-    mrtimes = xr.DataArray(mrdf['Date/Time']).unstack('dim_0')
-    mrds = xr.Dataset({'Measurement': mrxr, 'Date/Time': mrtimes}, attrs=attrs)
+    mrtimes = xr.DataArray(mrdf.loc[(mrdf.index.get_level_values('400') == 401) &
+                                    (mrdf.index.get_level_values('LV2 Processor') == 'Zenith')]['Date/Time'])
+    # mrtimes = mrtimes.values
+    # print(mrtimes)
+    # mrtimes.reset_index(drop=True, inplace=True)
+    # mrtimes = xr.DataArray(mrdf['Date/Time']).unstack('dim_0')
+    # mrds = xr.Dataset({'Measurement': mrxr, 'Date/Time': mrtimes}, attrs=attrs)
+    mrds = xr.Dataset({'Measurement': mrxr}, attrs=attrs)
     mrds['DataQuality'] = xr.DataArray(mrdf['DataQuality']).unstack('dim_0')
     mrds.coords['dim_1'] = mrxr.coords['dim_1'].values.astype(float)
     mrds.rename({'400': 'Record Type', 'dim_1': 'Range'}, inplace=True)
     mrds.coords['Record Type'] = names
     mrds.coords['Range'].attrs['units'] = 'km'
     mrds['Measurement'].attrs['units'] = record_unit_dict
-    mrds.set_coords('Date/Time', inplace=True)
+    mrds['Time'] = ('scan', mrtimes.values)
+    mrds.set_coords('Time', inplace=True)
+    mrds.swap_dims({'scan': 'Time'}, inplace=True)
+    mrds = mrds.drop('scan')
 
-    mrds.rename({'Date/Time': 'Time'}, inplace=True)
+    # mrds.rename({'Date/Time': 'Time'}, inplace=True)
 
     if resample is None:
         return mrds
     else:
+        # mwrds2 = mrds.rasp.nd_resample('5T', 'Time', 'scan').rasp.split_array('Measurement', 'Record Type')
         mwrds2 = mrds.rasp.nd_resample('5T', 'Time', 'scan').rasp.split_array('Measurement', 'Record Type')
         mwrds2['Temperature'].attrs['units'] = 'K'
         mwrds2['Vapor Density'].attrs['units'] = '?'
