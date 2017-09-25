@@ -196,7 +196,7 @@ def mwr_from_csv(file, scan='Zenith', resample=None, attrs=None, resample_args={
             # this is the python 2 version-- not supported!
             # csv = io.StringIO(csv_string.decode('utf-8'))
             csv = io.StringIO(csv_string)
-            df = pd.read_csv(csv)
+            df = pd.read_csv(csv, skipinitialspace=True)
             csvs[str(types[n])] = df
 
     record_types = csvs['100']['Title'].values
