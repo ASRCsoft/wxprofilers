@@ -214,8 +214,8 @@ def mwr_from_csv(file, scan='Zenith', resample=None, attrs=None, resample_args={
     df400['Date/Time'] = pd.to_datetime(df400['Date/Time'])
     for n in range(csvs['100'].shape[0]):
         name = names[n]
-        is_type = np.logical_and(df400['400'] == csvs['100']['Record Type'][n],
-                                 df400['LV2 Processor'] == scan)
+        is_type = ((df400['400'] == csvs['100']['Record Type'][n]) &
+                   (df400['LV2 Processor'] == scan))
         df = df400.loc[is_type, df400.columns[4:-1]]
         df.index = df400.loc[is_type, 'Date/Time']
         df.columns = df.columns.map(float)
@@ -241,7 +241,10 @@ def mwr_from_csv(file, scan='Zenith', resample=None, attrs=None, resample_args={
     mrds['DataQuality'] = xr.DataArray(mrdf['DataQuality']).unstack('dim_0')
     mrds.coords['dim_1'] = mrxr.coords['dim_1'].values.astype(float)
     mrds.rename({'400': 'Record Type', 'dim_1': 'Range'}, inplace=True)
-    mrds.coords['Record Type'] = names
+    # create a record type dictionary and replace 401 etc with Temperature etc
+    rt_dict = { csvs['100']['Record Type'][n]: names[n] for n in range(csvs['100'].shape[0]) }
+    mrds.coords['Record Type'] = [ rt_dict[n] for n in mrds.coords['Record Type'].values ]
+    # mrds.coords['Record Type'] = names
     mrds.coords['Range'].attrs['units'] = 'km'
     mrds['Measurement'].attrs['units'] = record_unit_dict
     mrds['Time'] = ('scan', mrtimes.values)
