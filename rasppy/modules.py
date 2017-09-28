@@ -216,15 +216,22 @@ class ProfileDataset(object):
         ds = xr.merge([self._obj, ds]).drop(array)
         return ds
 
-    def los_format(self, replace_nat=True):
+    def los_format(self, sequence='Sequence', replace_nat=True):
+        # make sure we have sequence coords
+        if 'Sequence' not in self._obj.keys():
+            raise Exception('Must have sequence coordinates')
         # switch to LOS format and print the new xarray object
         lidar2 = self._obj.copy()
-        lidar2['scan'] = ('Time', np.cumsum(lidar2['LOS'].values == 0))
-        lidar2.set_coords('scan', inplace=True)
-        lidar2 = lidar2.set_index(profile=['scan', 'LOS'])
+        # lidar2['scan'] = ('Time', np.cumsum(lidar2['LOS'].values == 0))
+        # lidar2.set_coords('scan', inplace=True)
+        lidar2 = lidar2.set_index(profile=[sequence, 'LOS'])
         lidar2.coords['profile'] = ('Time', lidar2.coords['profile'].to_index())
         lidar2.swap_dims({'Time': 'profile'}, inplace=True)
         lidar2 = lidar2.unstack('profile')
+        # fill in missing sequences
+        all_sequences = np.arange(lidar2.coords[sequence].min(),
+                                  lidar2.coords[sequence].max())
+        lidar2.reindex({'Sequence': all_sequences})
         if replace_nat:
             lidar2.rasp.replace_nat()
 
