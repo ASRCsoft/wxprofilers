@@ -18,7 +18,7 @@ class ProfileDataset(object):
     def __init__(self, xarray_obj):
         self._obj = xarray_obj
 
-    def estimate_wind_leosphere(self, rws='RWS', filter='Status', los='LOS'):
+    def estimate_wind_leosphere(self, rws='RWS', filter='Status', los='LOS', sequence='Sequence'):
         if ((filter is not None and self._obj[filter] is None) or self._obj[rws] is None or los not in self._obj.coords.keys()):
             # raise an error
             pass
@@ -26,60 +26,41 @@ class ProfileDataset(object):
         # elevation
         el = float(self._obj.attrs['scan_elevation_angle_deg']) * np.pi / 180
 
-        # Occasionally the lidar will 'skip a beat', that is, skip a
-        # LOS for god only knows what reason. When this happens
-        # Leosphere's code just uses the previous measurement from
-        # that LOS. I'm going to re-jigger this rws matrix to acheive
-        # the same thing, basically tricking my code into thinking the
-        # LOS was not skipped at all.
-        los_diff = self._obj.coords[los][1:].values - self._obj.coords[los][:-1].values
-        skipped = np.logical_not(np.in1d(los_diff, [1, -4]))
-        skipped = np.insert(skipped, 0, False)
-        nskipped = np.sum(skipped)
-        longer_shape = self._obj[rws].values.shape
-        longer_shape = (longer_shape[0] + nskipped, longer_shape[1])
-        rws_mat = np.full(longer_shape, np.nan, float)
-        cum_skipped = np.cumsum(skipped)
-        index_map = np.array(range(self._obj[rws].values.shape[0])) + cum_skipped
-        #return self._obj[rws].values
-        rws_mat[index_map] = self._obj[rws].values
-        #return rws_mat
-        which_skipped = np.where(skipped)[0]
-        # return which_skipped
-        for n, i in enumerate(which_skipped):
-            rws_mat[i + n] = rws_mat[i - 5 + n]
-        # return rws_mat
+        # I want to get NA values for all missing sequences and
+        # LOS's. The los_format does that automatically, so using it
+        # here
+        lidar = self._obj.rasp.los_format(sequence=sequence)
+
+        # now flatten back down-- we will have NA's in the right
+        # places now
+        lidar = lidar.stack(profile=[sequence, los]).reset_index('profile').swap_dims({'profile': 'Time'})
+        rws_mat = lidar['RWS'].values.transpose()
 
         if filter is not None:
-            # also need to re-jigger the status matrix a bit
-            status_mat = np.full(longer_shape, np.nan, int)
-            status_mat[index_map] = self._obj[filter].values.astype(int)
-            for n, i in enumerate(which_skipped):
-                status_mat[i + n] = status_mat[i - 5 + n]
+            # set filter to False if filter value is NA
+            lidar[filter] = (['Time', 'Range'],
+                             np.where(pd.isnull(lidar[filter]), False, lidar[filter]).transpose())
+            status_mat = lidar[filter]
+            # the locations where 5 status=1 measurements were taken
+            # in a row
             is_good = np.stack([status_mat[0:-4,:], status_mat[1:-3,:], status_mat[2:-2,:],
                                 status_mat[3:-1,:], status_mat[4:,:]]).all(axis=0)
         else:
-            is_good = np.full((longer_shape[0] - 4, longer_shape[1]), True, bool)
+            is_good = np.full((lidar.dims['Time'] - 4, lidar.dims['Range']), True, bool)
 
         good_indices = np.where(is_good)
         # add 4 columns for the 4 removed earlier
         good_indices = (good_indices[0] + 4, good_indices[1])
-        los_ids = self._obj.coords[los].astype(int).values
-        los_ids = np.insert(los_ids, which_skipped, los_ids[which_skipped - 1] + 1 % 5)
-        # for i in which_skipped: # add the missing LOS IDs
-        #     los_ids = np.insert(los_ids, i, los_ids[i - 1] + 1 % 5)
+        los_ids = lidar.coords[los].astype(int).values
         row_los = los_ids[good_indices[0]]
         # return row_los
-        rws_cols = self._obj.coords['Range'].values
+        rws_cols = lidar.coords['Range'].values
         good_cols = rws_cols[good_indices[1]]
 
         # create a multiIndex data frame to hold the data
         iterables = [['x', 'y', 'z'], rws_cols]
         mult_index = pd.MultiIndex.from_product(iterables, names=['Component', 'Range'])
-        time_index = self._obj.coords['Time'].to_index()
-        for n, i in enumerate(which_skipped):
-            time_index = time_index.insert(i + n, time_index[i - 1 + n] + pd.Timedelta('1us'))
-        # return time_index
+        time_index = lidar.coords['Time'].to_index()
         winds = pd.DataFrame(index=time_index, columns=mult_index, dtype='float')
         rws_df = pd.DataFrame(rws_mat, index=time_index, columns=rws_cols)
 
@@ -106,7 +87,9 @@ class ProfileDataset(object):
             winds.ix[rows, ('y', rws_cols[col])] = -xs[col_indices]
             winds.ix[rows, ('z', rws_cols[col])] = -zs[col_indices]
 
-        windxr = xr.DataArray(winds.iloc[index_map]).unstack('dim_1')#.rename({'dim_0': 'profile'})
+        # only take the time indices that were in the original xarray object
+        winds_orig = winds.loc[self._obj.coords['Time']]
+        windxr = xr.DataArray(winds_orig).unstack('dim_1')
         return windxr
 
     def estimate_wind(self, method='Leosphere', **kwargs):
@@ -251,7 +234,7 @@ class ProfileDataset(object):
                 next_index = (index[0], index[1] + 1)
             next_time = self._obj.coords[timedim].values[next_index[0], next_index[1]]
             if not pd.isnull(next_time):
-                self._obj.coords[timedim][index[0], index[1]] = next_time
+                self._obj.coords[timedim][index[0], index[1]] = next_time - pd.Timedelta('1us')
 
         # this will leave some times still missing at the end
         # fix the remaining missing times by replacing them with the previous time:
@@ -264,7 +247,7 @@ class ProfileDataset(object):
                 prev_index = (index[0], index[1] - 1)
             prev_time = self._obj.coords[timedim].values[prev_index[0], prev_index[1]]
             if not pd.isnull(prev_time):
-                self._obj.coords[timedim][index[0], index[1]] = prev_time
+                self._obj.coords[timedim][index[0], index[1]] = prev_time + pd.Timedelta('1us')
 
     def remove_where(self, arrays, logarr):
         for array in arrays:
