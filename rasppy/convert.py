@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """Functions for importing data"""
-import io, re
+import io, re, datetime
 import xml.etree.ElementTree
 import numpy as np
 import pandas as pd
@@ -24,7 +24,7 @@ class ScanNotFoundException(Exception):
     def __str__(self):
         return repr(self.parameter)
 
-def lidar_from_csv(rws, scans=None, scan_id=None, wind=None, attrs=None):
+def lidar_from_csv(rws, sequences=None, scans=None, scan_id=None, wind=None, attrs=None):
     """create a lidar object from Nathan's csv files"""
 
     # start with the scan info
@@ -77,6 +77,24 @@ def lidar_from_csv(rws, scans=None, scan_id=None, wind=None, attrs=None):
     measurement_vars = ['RWS [m/s]', 'DRWS [m/s]', 'CNR [db]', 'Confidence Index [%]', 'Mean Error', 'Status']
     measurement_vars = list(set(measurement_vars) & set(csv.columns))
 
+    # add sequences if we got a sequences.csv file
+    if sequences is not None:
+        seq_csv = pd.read_csv(sequences, parse_dates=[3, 4])
+        # the 'Last Acquisition' time is rounded down to the nearest
+        # second, so add a second so that the time range includes the
+        # last scan
+        seq_csv['Last Acquisition'] += pd.Timedelta('1 second')
+        csv['Sequence ID'] = None
+        profile_vars.append('Sequence ID')
+        # find the matching sequences using first and last times
+        seq_indices = np.searchsorted(seq_csv['Last Acquisition'],
+                                      csv['Timestamp'])
+        seq_indices2 = np.searchsorted(seq_csv['First Acquisition'],
+                                       csv['Timestamp']) - 1
+        # make sure all the scans fell into a sequence time range
+        assert((seq_indices == seq_indices2).all()), 'Some scans have no matching sequence'
+        csv['Sequence ID'] = seq_csv['Sequence ID'][seq_indices].values
+
     # get profile-specific variables
     profile_vars.append('Timestamp')
     csv_profs = csv[profile_vars].drop_duplicates()
@@ -96,10 +114,12 @@ def lidar_from_csv(rws, scans=None, scan_id=None, wind=None, attrs=None):
         h1[level] = (('Timestamp', 'Range [m]'), xr.DataArray(data[level]))
 
     ds = xr.Dataset(h1, coords=coords, attrs=attrs)
-    ds.rename({'Timestamp': 'Time', 'RWS [m/s]': 'RWS', 'DRWS [m/s]': 'DRWS', 'CNR [db]': 'CNR',
-               'Range [m]': 'Range', 'Configuration ID': 'Configuration', 'LOS ID': 'LOS',
-               'Azimuth [°]': 'Azimuth', 'Elevation [°]': 'Elevation'},
-              inplace=True)
+    name_dict = {'Timestamp': 'Time', 'RWS [m/s]': 'RWS', 'DRWS [m/s]': 'DRWS', 'CNR [db]': 'CNR',
+                 'Range [m]': 'Range', 'Configuration ID': 'Configuration', 'LOS ID': 'LOS',
+                 'Azimuth [°]': 'Azimuth', 'Elevation [°]': 'Elevation'}
+    if sequences is not None:
+        name_dict['Sequence ID'] = 'Sequence'
+    ds.rename(name_dict, inplace=True)
 
     # set the units
     ds['RWS'].attrs['long_name'] = 'radial wind speed'
