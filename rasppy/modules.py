@@ -33,7 +33,7 @@ class ProfileDataset(object):
 
         # now flatten back down-- we will have NA's in the right
         # places now
-        lidar = lidar.stack(profile=[sequence, los]).reset_index('profile').swap_dims({'profile': 'Time'})
+        lidar = lidar.stack(profile=['scan', los]).reset_index('profile').swap_dims({'profile': 'Time'})
         rws_mat = lidar['RWS'].values.transpose()
 
         if filter is not None:
@@ -70,6 +70,14 @@ class ProfileDataset(object):
         los2 = rws_df.lookup(rws_df.index[good_indices[0] - ((row_los + 3) % 5)], good_cols)
         los3 = rws_df.lookup(rws_df.index[good_indices[0] - ((row_los + 2) % 5)], good_cols)
         los4 = rws_df.lookup(rws_df.index[good_indices[0] - ((row_los + 1) % 5)], good_cols)
+        # # get corresponding elevations-- no, don't do this for now,
+        # # Leosphere doesn't seem to be doing this
+        # elevations = lidar.coords['Elevation'].values * np.pi / 180
+        # l0_el = elevations[good_indices[0] - row_los]
+        # l1_el = elevations[good_indices[0] - ((row_los + 4) % 5)]
+        # l2_el = elevations[good_indices[0] - ((row_los + 3) % 5)]
+        # l3_el = elevations[good_indices[0] - ((row_los + 2) % 5)]
+        # l4_el = elevations[good_indices[0] - ((row_los + 1) % 5)]
         
         # got these weights from a maximum likelihood calculation
         weight0to3 = np.sin(el) / (4 * np.sin(el) ** 2 + 1)
@@ -199,22 +207,43 @@ class ProfileDataset(object):
         ds = xr.merge([self._obj, ds]).drop(array)
         return ds
 
-    def los_format(self, sequence='Sequence', replace_nat=True):
-        # make sure we have sequence coords
-        if 'Sequence' not in self._obj.keys():
-            raise Exception('Must have sequence coordinates')
+    def los_format(self, los='LOS', sequence='Sequence', replace_nat=True):
         # switch to LOS format and print the new xarray object
+
         lidar2 = self._obj.copy()
-        # lidar2['scan'] = ('Time', np.cumsum(lidar2['LOS'].values == 0))
-        # lidar2.set_coords('scan', inplace=True)
-        lidar2 = lidar2.set_index(profile=[sequence, 'LOS'])
+        has_sequence = sequence is not None and sequence in lidar2.keys()
+        # create 'scan' coordinate based on decreasing LOS ID (and
+        # changing sequence ID if available)
+        los_diff = (lidar2.coords[los][1:].values -
+                    lidar2.coords[los][:-1].values)
+        if has_sequence:
+            seq_diff = (lidar2.coords[sequence][1:].values -
+                        lidar2.coords[sequence][:-1].values)
+            scan = np.cumsum((los_diff <= 0) | (seq_diff != 0))
+        else:
+            scan = np.cumsum(los_diff <= 0)
+        # add the first scan, which is obviously zero
+        scan = np.insert(scan, 0, 0)
+        
+        lidar2.coords['scan'] = ('Time', scan)
+        lidar2 = lidar2.set_index(profile=['scan', los])
         lidar2.coords['profile'] = ('Time', lidar2.coords['profile'].to_index())
         lidar2.swap_dims({'Time': 'profile'}, inplace=True)
         lidar2 = lidar2.unstack('profile')
         # fill in missing sequences
-        all_sequences = np.arange(lidar2.coords[sequence].min(),
-                                  lidar2.coords[sequence].max())
-        lidar2.reindex({'Sequence': all_sequences})
+        # all_sequences = np.arange(lidar2.coords[sequence].min(),
+        #                           lidar2.coords[sequence].max())
+        # lidar2.reindex({'Sequence': all_sequences})
+
+        # fix the sequence and configuration numbers
+        if has_sequence:
+            seq2 = lidar2[sequence].sel(LOS=0)[1:]
+            seq2 = np.insert(seq2, 0, lidar2[sequence].sel(scan=0, LOS=lidar2.dims[los] - 1))
+            lidar2.coords[sequence] = ('scan', seq2.astype(int))
+        if 'Configuration' in lidar2.keys():
+            conf2 = lidar2['Configuration'].sel(LOS=0)[1:]
+            conf2 = np.insert(conf2, 0, lidar2['Configuration'].sel(scan=0, LOS=lidar2.dims[los] - 1))
+            lidar2.coords['Configuration'] = ('scan', conf2.astype(int))
         if replace_nat:
             lidar2.rasp.replace_nat()
 
