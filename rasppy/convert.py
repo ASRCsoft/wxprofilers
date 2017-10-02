@@ -92,8 +92,12 @@ def lidar_from_csv(rws, sequences=None, scans=None, scan_id=None, wind=None, att
         seq_indices2 = np.searchsorted(seq_csv['First Acquisition'],
                                        csv['Timestamp']) - 1
         # make sure all the scans fell into a sequence time range
-        assert((seq_indices == seq_indices2).all()), 'Some scans have no matching sequence'
+        seq_matches = seq_indices == seq_indices2
         csv['Sequence ID'] = seq_csv['Sequence ID'][seq_indices].values
+        if not seq_matches.all():
+            warnings.warn('Some scans have no matching sequence')
+            csv.loc[~seq_matches, 'Sequence ID'] = None
+        
 
     # get profile-specific variables
     profile_vars.append('Timestamp')
