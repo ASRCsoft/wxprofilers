@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """Functions for importing data"""
-import io, re, datetime
+import io, re, datetime, warnings
 import xml.etree.ElementTree
 import numpy as np
 import pandas as pd
@@ -95,7 +95,7 @@ def lidar_from_csv(rws, sequences=None, scans=None, scan_id=None, wind=None, att
         seq_matches = seq_indices == seq_indices2
         csv['Sequence ID'] = seq_csv['Sequence ID'][seq_indices].values
         if not seq_matches.all():
-            warnings.warn('Some scans have no matching sequence')
+            warnings.warn('Some profiles have no matching sequence')
             csv.loc[~seq_matches, 'Sequence ID'] = None
         
 
