@@ -407,7 +407,7 @@ class RaspAccessor(object):
         coords.remove(dim)
         return rasp.recursive_resample(self._obj, rule, coord, dim, coords)
 
-    def plot_barbs(self, x=None, y=None, components=('x', 'y'), resample=None, resampley=None, ax=None):
+    def plot_barbs(self, x=None, y=None, components=('x', 'y'), resample=None, resampley=None, ax=None, **kwargs):
         if x is None:
             x = 'Time'
         if resample is not None:
@@ -446,7 +446,7 @@ class RaspAccessor(object):
             ax = plt.subplot(111)
             xtick_locator = mdates.AutoDateLocator()
             xtick_formatter = mdates.AutoDateFormatter(xtick_locator)
-        ax.barbs(X, Y, U, V)
+        ax.barbs(X, Y, U, V, **kwargs)
         if new_axis:
             ax.set_ylabel(y)
             ax.xaxis.set_major_locator(xtick_locator)
