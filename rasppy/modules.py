@@ -452,7 +452,7 @@ class RaspAccessor(object):
             ax.xaxis.set_major_locator(xtick_locator)
             ax.xaxis.set_major_formatter(xtick_formatter)
 
-    def plot_profile(self, y=None, **kwargs):
+    def plot_profile(self, y=None, ax=None, **kwargs):
         if y is None:
             dimname = self._obj.dims[0]
         else:
@@ -465,9 +465,11 @@ class RaspAccessor(object):
                 if d != dimname:
                     dims_order.append(d)
             xs = xs.transpose(*dims_order)
-        plt.plot(xs.values, ys, **kwargs)
-        plt.xlabel(self._obj.name)
-        plt.ylabel(dimname)
+        if ax is None:
+            ax = plt.gca()
+        ax.plot(xs.values, ys, **kwargs)
+        ax.set_xlabel(self._obj.name)
+        ax.set_ylabel(dimname)
         # if len(xs.dims) > 1:
         #     dim2 = xs.dims[1]
         #     labels = [ dim2 + ' = ' + str(x) for x in xs.coords[dim2].values ]
