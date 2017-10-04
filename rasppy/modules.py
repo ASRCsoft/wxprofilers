@@ -465,13 +465,13 @@ class RaspAccessor(object):
                 if d != dimname:
                     dims_order.append(d)
             xs = xs.transpose(*dims_order)
-        plt.plot(xs, ys, **kwargs)
+        plt.plot(xs.values, ys, **kwargs)
         plt.xlabel(self._obj.name)
         plt.ylabel(dimname)
-        if len(xs.dims) > 1:
-            dim2 = xs.dims[1]
-            labels = [ dim2 + ' = ' + str(x) for x in xs.coords[dim2].values ]
-            plt.legend(labels)
+        # if len(xs.dims) > 1:
+        #     dim2 = xs.dims[1]
+        #     labels = [ dim2 + ' = ' + str(x) for x in xs.coords[dim2].values ]
+        #     plt.legend(labels, loc=2)
         # if legend:
         #     # plt.legend(lines, self.index)
         #     ax.legend(self.index)
