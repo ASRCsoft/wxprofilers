@@ -56,25 +56,54 @@ def lidar_from_csv(rws, sequences=None, scans=None, scan_id=None, wind=None, att
     else:
         scan = None
 
-    dtypes = {'Timestamp': str, 'Configuration ID': int,
-              'Scan ID': int, 'LOS ID': int, 'Azimuth [°]': float,
-              'Elevation [°]': float, 'Range [m]': float, 'RWS [m/s]': float,
-              'DRWS [m/s]': float, 'CNR [db]': float, 'Confidence Index [%]': float,
-              'Mean Error': float, 'Status': bool}
-    csv = pd.read_csv(rws, parse_dates=['Timestamp'], dtype=dtypes)
+    # do this differently depending on the software version
+    try: 
+        dtypes = {'Timestamp': str, 'Configuration ID': int,
+                  'Scan ID': int, 'LOS ID': int, 'Azimuth [°]': float,
+                  'Elevation [°]': float, 'Range [m]': float, 'RWS [m/s]': float,
+                  'DRWS [m/s]': float, 'CNR [db]': float, 'Confidence Index [%]': float,
+                  'Mean Error': float, 'Status': bool}
+        csv = pd.read_csv(rws, parse_dates=['Timestamp'], dtype=dtypes)
+        name_dict = {'Timestamp': 'Time', 'RWS [m/s]': 'RWS', 'DRWS [m/s]': 'DRWS', 'CNR [db]': 'CNR',
+                     'Range [m]': 'Range', 'Configuration ID': 'Configuration', 'LOS ID': 'LOS',
+                     'Azimuth [°]': 'Azimuth', 'Elevation [°]': 'Elevation'}
+        if 'Confidence Index [%]' in csv.columns:
+            name_dict['Confidence Index [%]'] = 'Confidence'
+        if 'Mean Error' in csv.columns:
+            name_dict['Mean Error'] = 'Error'
+        ds.rename(name_dict, inplace=True)
+        profile_vars = ['LOS', 'Configuration', 'Azimuth', 'Elevation']
+    except ValueError:
+        # this happens if we're looking at a newer version of the data
+        # file using semicolons as separators
+        dtypes = {'Timestamp': str, 'Settings ID': int, 'Resolution ID': int,
+                  'Scan ID': int, 'LOS ID': int, 'Sequence ID': int, 'Azimuth [°]': float,
+                  'Elevation [°]': float, 'Range [m]': float, 'Radial Wind Speed [m/s]': float,
+                  'Dispersion Radial Wind Speed [m/s]': float, 'CNR [dB]': float,
+                  'Confidence Index [%]': float, 'Mean Error': float, 'Status': bool}
+        csv = pd.read_csv(rws, sep=';', parse_dates=['Timestamp'], dtype=dtypes)
+        name_dict = {'Timestamp': 'Time', 'Radial Wind Speed [m/s]': 'RWS',
+                     'Dispersion Radial Wind Speed [m/s]': 'DRWS', 'CNR [dB]': 'CNR',
+                     'Range [m]': 'Range', 'Configuration ID': 'Configuration', 'LOS ID': 'LOS',
+                     'Azimuth [°]': 'Azimuth', 'Elevation [°]': 'Elevation',
+                     'Settings ID': 'Settings', 'Resolution ID': 'Resolution',
+                     'Confidence Index [%]': 'Confidence', 'Mean Error': 'Error',
+                     'Sequence ID': 'Sequence'}
+        csv.rename(columns=name_dict, inplace=True)
+        profile_vars = ['LOS', 'Settings', 'Resolution', 'Azimuth', 'Elevation', 'Sequence']
+        
     if scan_id is not None:
         csv = csv.loc[csv['Scan ID'] == scan_id]
         # check that there's still data here:
         # ...
 
     # organize the data
-    profile_vars = ['LOS ID', 'Configuration ID', 'Azimuth [°]', 'Elevation [°]']
-    data = csv.drop(profile_vars, 1).pivot(index='Timestamp', columns='Range [m]')
+    data = csv.drop(profile_vars, 1).pivot(index='Time', columns='Range')
     data.index = pd.to_datetime(data.index)
 
     # these fields will be variables in the xarray object
     # remove columns that don't exist in the csv file (for example, if not using the whole radial wind data)
-    measurement_vars = ['RWS [m/s]', 'DRWS [m/s]', 'CNR [db]', 'Confidence Index [%]', 'Mean Error', 'Status']
+    measurement_vars = ['RWS', 'DRWS', 'CNR', 'Confidence', 'Error', 'Status']
     measurement_vars = list(set(measurement_vars) & set(csv.columns))
 
     # add sequences if we got a sequences.csv file
@@ -84,46 +113,47 @@ def lidar_from_csv(rws, sequences=None, scans=None, scan_id=None, wind=None, att
         # second, so add a second so that the time range includes the
         # last scan
         seq_csv['Last Acquisition'] += pd.Timedelta('1 second')
-        csv['Sequence ID'] = None
-        profile_vars.append('Sequence ID')
+        csv['Sequence'] = None
+        profile_vars.append('Sequence')
         # find the matching sequences using first and last times
         seq_indices = np.searchsorted(seq_csv['Last Acquisition'],
-                                      csv['Timestamp'])
+                                      csv['Time'])
         seq_indices2 = np.searchsorted(seq_csv['First Acquisition'],
-                                       csv['Timestamp']) - 1
+                                       csv['Time']) - 1
         # make sure all the scans fell into a sequence time range
         seq_matches = seq_indices == seq_indices2
-        csv['Sequence ID'] = seq_csv['Sequence ID'][seq_indices].values
+        csv['Sequence'] = seq_csv['Sequence'][seq_indices].values
         if not seq_matches.all():
             warnings.warn('Some profiles have no matching sequence')
-            csv.loc[~seq_matches, 'Sequence ID'] = None
+            csv.loc[~seq_matches, 'Sequence'] = None
         
 
     # get profile-specific variables
-    profile_vars.append('Timestamp')
+    profile_vars.append('Time')
     csv_profs = csv[profile_vars].drop_duplicates()
     # should check here that each time has unique values
     # ...
 
     h1 = {}
-    coords = {'Timestamp': ('Timestamp', data.index), 'Range [m]': data.columns.levels[1]}
+    coords = {'Time': ('Time', data.index), 'Range': data.columns.levels[1]}
     if wind is not None:
         coords['Component'] = ('Component', ['x', 'y', 'z'])
     # get rid of 'Timestamp' since it's already in the coords variable
-    profile_vars.remove('Timestamp')
+    profile_vars.remove('Time')
 
     for scan_type in profile_vars:
-        coords[scan_type] = ('Timestamp', csv_profs[scan_type])
+        coords[scan_type] = ('Time', csv_profs[scan_type])
     for level in measurement_vars:
-        h1[level] = (('Timestamp', 'Range [m]'), xr.DataArray(data[level]))
+        h1[level] = (('Time', 'Range'), xr.DataArray(data[level]))
 
     ds = xr.Dataset(h1, coords=coords, attrs=attrs)
-    name_dict = {'Timestamp': 'Time', 'RWS [m/s]': 'RWS', 'DRWS [m/s]': 'DRWS', 'CNR [db]': 'CNR',
-                 'Range [m]': 'Range', 'Configuration ID': 'Configuration', 'LOS ID': 'LOS',
-                 'Azimuth [°]': 'Azimuth', 'Elevation [°]': 'Elevation'}
-    if sequences is not None:
-        name_dict['Sequence ID'] = 'Sequence'
-    ds.rename(name_dict, inplace=True)
+    # name_dict = {'Timestamp': 'Time', 'RWS [m/s]': 'RWS', 'DRWS [m/s]': 'DRWS', 'CNR [db]': 'CNR',
+    #              'Range [m]': 'Range', 'Configuration ID': 'Configuration', 'LOS ID': 'LOS',
+    #              'Azimuth [°]': 'Azimuth', 'Elevation [°]': 'Elevation',
+    #              'Settings ID': 'Settings', 'Resolution ID': 'Resolution'}
+    # if sequences is not None:
+    #     name_dict['Sequence ID'] = 'Sequence'
+    # ds.rename(name_dict, inplace=True)
 
     # set the units
     ds['RWS'].attrs['long_name'] = 'radial wind speed'
@@ -137,8 +167,7 @@ def lidar_from_csv(rws, sequences=None, scans=None, scan_id=None, wind=None, att
     ds.coords['Elevation'].attrs['long_name'] = 'elevation'
     ds.coords['Elevation'].attrs['units'] = 'degree'
 
-    if 'Confidence Index [%]' in measurement_vars:
-        ds.rename({'Confidence Index [%]': 'Confidence'}, inplace=True)
+    if 'Confidence' in measurement_vars:
         ds['Confidence'].attrs['standard_name'] = 'confidence index'
         ds['Confidence'].attrs['units'] = 'percent'
 
@@ -146,8 +175,7 @@ def lidar_from_csv(rws, sequences=None, scans=None, scan_id=None, wind=None, att
         ds['Status'] = ds['Status'].astype(bool)
         ds['Status'].attrs['long_name'] = 'status'
 
-    if 'Mean Error' in measurement_vars:
-        ds.rename({'Mean Error': 'Error'}, inplace=True)
+    if 'Error' in measurement_vars:
         ds['Error'].attrs['long_name'] = 'mean error'
 
     if not wind is None:
