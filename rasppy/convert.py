@@ -71,7 +71,7 @@ def lidar_from_csv(rws, sequences=None, scans=None, scan_id=None, wind=None, att
             name_dict['Confidence Index [%]'] = 'Confidence'
         if 'Mean Error' in csv.columns:
             name_dict['Mean Error'] = 'Error'
-        ds.rename(name_dict, inplace=True)
+        csv.rename(columns=name_dict, inplace=True)
         profile_vars = ['LOS', 'Configuration', 'Azimuth', 'Elevation']
     except ValueError:
         # this happens if we're looking at a newer version of the data
