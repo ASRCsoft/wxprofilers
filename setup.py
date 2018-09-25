@@ -14,6 +14,8 @@ setup(name='raspPy',
       test_suite='nose.collector',
       tests_require=['nose'],
       install_requires=[
+          'cython',
+          'matplotlib',
           'xarray',
           'metpy',
           'statsmodels',
