@@ -6,6 +6,8 @@
 #include <stdexcept>
 #include <stdint.h>
 #include <x86intrin.h>
+#include <numpy/ndarraytypes.h>
+#include <numpy/npy_3kcompat.h>
 
 const uint64_t ONE64 = 1;
 
@@ -507,11 +509,6 @@ void median_filter_2d(int x, int y, int hx, int hy, int blockhint, const T* in, 
     int blocksize = blockhint ? blockhint : choose_blocksize_2d(h);
     median_filter_impl_2d<T>(x, y, hx, hy, blocksize, in, out);
 }
-PyObject* median_filter_2d(int x, int y, int hx, int hy, int blockhint, const T* in, T* out) {
-  int h = std::max(hx, hy);
-  int blocksize = blockhint ? blockhint : choose_blocksize_2d(h);
-  median_filter_impl_2d<T>(x, y, hx, hy, blocksize, in, out);
-}
 
 template <typename T>
 void median_filter_1d(int x, int hx, int blockhint, const T* in, T* out) {
@@ -525,3 +522,62 @@ template void median_filter_2d<double>(int x, int y, int hx, int hy, int blockhi
 template void median_filter_1d<float>(int x, int hx, int blockhint, const float* in, float* out);
 template void median_filter_1d<double>(int x, int hx, int blockhint, const double* in, double* out);
 
+
+// added for python compatibility
+// following https://www.hardikp.com/2017/12/30/python-cpp/
+static PyObject *median_filter_2d_wrapper(PyObject *self, PyObject *args) {
+  PyObject *np_array;
+  PyObject *np_array_out;
+  npy_intp x;
+  npy_intp y;
+  npy_intp *dims;
+  int i;
+  int j;
+  if (!PyArg_ParseTuple(args, "O", &np_array)) return NULL;
+  dims = PyArray_DIMS(np_array);
+  x = dims[0];
+  y = dims[1];
+
+  // convert python array to a c array
+  double arr_in[x*y];
+  for(i = 0; i < x; i = i + 1) {
+    for(j = 0; j < y; j = j + 1) {
+      arr_in[i*y + j] = *(double *)(PyArray_GETPTR2(np_array, i, j));
+    }
+  }
+
+  // get the medians
+  double *arr_out = new double[x*y];
+  // careful, looks like these dimensions are flipped compared to
+  // numpy's
+  median_filter_2d<double>(y, x, 29, 3, 0, arr_in, arr_out);
+  
+  // convert to numpy array
+  np_array_out = PyArray_SimpleNewFromData(2, dims, NPY_DOUBLE, arr_out);
+  // make sure memory works correctly -- following
+  // http://acooke.org/cute/ExampleCod0.html
+  PyArray_ENABLEFLAGS((PyArrayObject*)np_array_out, NPY_ARRAY_OWNDATA);
+  // return PyFloat_FromDouble((double)(arr_in[1]));
+  // return PyFloat_FromDouble((double)(arr_out[8]));
+  return np_array_out;
+}
+
+static PyMethodDef median_methods[] = {
+  {"median_filter", median_filter_2d_wrapper, METH_VARARGS, "Returns a square of an integer."},
+  {NULL, NULL, 0, NULL}
+};
+
+static struct PyModuleDef median_definition = {
+  PyModuleDef_HEAD_INIT,
+  "median",
+  "A Python module containing Classy type and pants() function",
+  -1,
+  median_methods
+};
+
+PyMODINIT_FUNC PyInit_median(void) {
+  Py_Initialize();
+  PyObject *m = PyModule_Create(&median_definition);
+  import_array();
+  return m;
+}
