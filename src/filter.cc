@@ -45,6 +45,8 @@ inline int popcnt64(uint64_t x) {
 
 // Grid dimensions.
 
+// should dim be where I make changes??
+// yeah gonna have to change this
 class Dim {
 public:
     Dim(int b_, int size_, int h_)
@@ -83,8 +85,12 @@ private:
 
 // Slot i in the grid.
 
+// I think changes should go here. Somehow need to pass times/ranges
+// to the BDim objects, then alter calculation of w0/w1 to account for
+// distance instead of just index
+
 struct BDim {
-    BDim(Dim dim_) : dim(dim_) {
+    BDim(Dim dim_, PyObject *coords_, double radius_) : dim(dim_), coords(coords_), radius(radius_) {
         set(0);
     }
 
@@ -126,6 +132,8 @@ struct BDim {
     int size;
     int b0;
     int b1;
+    PyObject *coords;
+    double radius;
 };
 
 
@@ -289,8 +297,8 @@ private:
 template <typename T>
 class MedCalc2D {
 public:
-    MedCalc2D(int b_, Dim dimx_, Dim dimy_, const T* in_, T* out_)
-        : wr(b_ * b_), bx(dimx_), by(dimy_), in(in_), out(out_)
+  MedCalc2D(int b_, Dim dimx_, Dim dimy_, const T* in_, T* out_, PyObject *times, PyObject *ranges, double time_d, double range_d)
+    : wr(b_ * b_), bx(dimx_, times, time_d), by(dimy_, ranges, range_d), in(in_), out(out_)
     {}
 
     void run(int bx_, int by_)
@@ -394,80 +402,7 @@ private:
 
 
 template <typename T>
-class MedCalc1D {
-public:
-    MedCalc1D(int b_, Dim dimx_, const T* in_, T* out_)
-        : wr(b_), bx(dimx_), in(in_), out(out_)
-    {}
-
-    void run(int bx_)
-    {
-        bx.set(bx_);
-        calc_rank();
-        medians();
-    }
-
-private:
-    void calc_rank() {
-        wr.init_start();
-        for (int x = 0; x < bx.size; ++x) {
-            wr.init_feed(in[coord(x)], pack(x));
-        }
-        wr.init_finish();
-    }
-
-    void medians() {
-#ifdef NAIVE
-        for (int x = bx.b0; x < bx.b1; ++x) {
-            wr.clear();
-            update_block(+1, bx.w0(x), bx.w1(x));
-            set_med(x);
-        }
-#else
-        wr.clear();
-        int x = bx.b0;
-        update_block(+1, bx.w0(x), bx.w1(x));
-        set_med(x);
-        while (x + 1 < bx.b1) {
-            if (x >= bx.dim.h) {
-                wr.update(-1, pack(x - bx.dim.h));
-            }
-            ++x;
-            if (x + bx.dim.h < bx.size) {
-                wr.update(+1, pack(x + bx.dim.h));
-            }
-            set_med(x);
-        }
-#endif
-    }
-
-    inline void update_block(int op, int x0, int x1) {
-        for (int x = x0; x < x1; ++x) {
-            wr.update(op, pack(x));
-        }
-    }
-
-    inline void set_med(int x) {
-        out[coord(x)] = wr.get_med();
-    }
-
-    inline int pack(int x) const {
-        return x;
-    }
-
-    inline int coord(int x) const {
-        return x + bx.start;
-    }
-
-    WindowRank<T> wr;
-    BDim bx;
-    const T* const in;
-    T* const out;
-};
-
-
-template <typename T>
-void median_filter_impl_2d(int x, int y, int hx, int hy, int b, const T* in, T* out) {
+void median_filter_impl_2d(int x, int y, int hx, int hy, int b, const T* in, T* out, PyObject *times, PyObject *ranges, double time_d, double range_d) {
     if (2 * hx + 1 > b || 2 * hy + 1 > b) {
         throw std::invalid_argument("window too large for this block size");
     }
@@ -475,7 +410,8 @@ void median_filter_impl_2d(int x, int y, int hx, int hy, int b, const T* in, T* 
     Dim dimy(b, y, hy);
     #pragma omp parallel
     {
-        MedCalc2D<T> mc(b, dimx, dimy, in, out);
+      MedCalc2D<T> mc(b, dimx, dimy, in, out, times, ranges,
+		      time_d, range_d);
         #pragma omp for collapse(2)
         for (int by = 0; by < dimy.count; ++by) {
             for (int bx = 0; bx < dimx.count; ++bx) {
@@ -487,40 +423,15 @@ void median_filter_impl_2d(int x, int y, int hx, int hy, int b, const T* in, T* 
 
 
 template <typename T>
-void median_filter_impl_1d(int x, int hx, int b, const T* in, T* out) {
-    if (2 * hx + 1 > b) {
-        throw std::invalid_argument("window too large for this block size");
-    }
-    Dim dimx(b, x, hx);
-    #pragma omp parallel
-    {
-        MedCalc1D<T> mc(b, dimx, in, out);
-        #pragma omp for
-        for (int bx = 0; bx < dimx.count; ++bx) {
-            mc.run(bx);
-        }
-    }
-}
-
-
-template <typename T>
-void median_filter_2d(int x, int y, int hx, int hy, int blockhint, const T* in, T* out) {
+void median_filter_2d(int x, int y, int hx, int hy, int blockhint, const T* in, T* out, PyObject *times, PyObject *ranges, double time_d, double range_d) {
     int h = std::max(hx, hy);
     int blocksize = blockhint ? blockhint : choose_blocksize_2d(h);
-    median_filter_impl_2d<T>(x, y, hx, hy, blocksize, in, out);
+    median_filter_impl_2d<T>(x, y, hx, hy, blocksize, in, out,
+			     times, ranges, time_d, range_d);
 }
 
-template <typename T>
-void median_filter_1d(int x, int hx, int blockhint, const T* in, T* out) {
-    int blocksize = blockhint ? blockhint : choose_blocksize_1d(hx);
-    median_filter_impl_1d<T>(x, hx, blocksize, in, out);
-}
-
-template void median_filter_2d<float>(int x, int y, int hx, int hy, int blockhint, const float* in, float* out);
-template void median_filter_2d<double>(int x, int y, int hx, int hy, int blockhint, const double* in, double* out);
-
-template void median_filter_1d<float>(int x, int hx, int blockhint, const float* in, float* out);
-template void median_filter_1d<double>(int x, int hx, int blockhint, const double* in, double* out);
+template void median_filter_2d<float>(int x, int y, int hx, int hy, int blockhint, const float* in, float* out, PyObject *times, PyObject *ranges, double time_d, double range_d);
+template void median_filter_2d<double>(int x, int y, int hx, int hy, int blockhint, const double* in, double* out, PyObject *times, PyObject *ranges, double time_d, double range_d);
 
 
 // added for python compatibility
@@ -528,12 +439,18 @@ template void median_filter_1d<double>(int x, int hx, int blockhint, const doubl
 static PyObject *median_filter_2d_wrapper(PyObject *self, PyObject *args) {
   PyObject *np_array;
   PyObject *np_array_out;
+  PyObject *time_array;
+  PyObject *range_array;
   npy_intp x;
   npy_intp y;
   npy_intp *dims;
   int i;
   int j;
-  if (!PyArg_ParseTuple(args, "O", &np_array)) return NULL;
+  double time_d;
+  double range_d;
+  if (!PyArg_ParseTuple(args, "OOOdd", &np_array,
+			&time_array, &range_array,
+			&time_d, &range_d)) return NULL;
   dims = PyArray_DIMS(np_array);
   x = dims[0];
   y = dims[1];
@@ -550,7 +467,9 @@ static PyObject *median_filter_2d_wrapper(PyObject *self, PyObject *args) {
   double *arr_out = new double[x*y];
   // careful, looks like these dimensions are flipped compared to
   // numpy's
-  median_filter_2d<double>(y, x, 29, 3, 0, arr_in, arr_out);
+  median_filter_2d<double>(y, x, 29, 3, 0, arr_in, arr_out,
+			   time_array, range_array,
+			   time_d, range_d);
   
   // convert to numpy array
   np_array_out = PyArray_SimpleNewFromData(2, dims, NPY_DOUBLE, arr_out);
