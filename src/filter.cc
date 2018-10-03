@@ -49,11 +49,13 @@ inline int popcnt64(uint64_t x) {
 // yeah gonna have to change this
 class Dim {
 public:
-    Dim(int b_, int size_, int h_)
+    Dim(int b_, int size_, int h_, PyObject *coords_, double radius_)
         : size(size_),
           h(h_),
           step(calc_step(b_, h_)),
-          count(calc_count(b_, size_, h_))
+          count(calc_count(b_, size_, h_)),
+	  coords(coords_),
+	  radius(radius_)
     {
         assert(2 * h + 1 < b_);
         assert(count >= 1);
@@ -65,6 +67,8 @@ public:
     const int h;
     const int step;
     const int count;
+    PyObject *coords;
+    double radius;
 
 private:
     inline static int calc_step(int b, int h) {
@@ -90,7 +94,7 @@ private:
 // distance instead of just index
 
 struct BDim {
-    BDim(Dim dim_, PyObject *coords_, double radius_) : dim(dim_), coords(coords_), radius(radius_) {
+    BDim(Dim dim_) : dim(dim_) {
         set(0);
     }
 
@@ -111,10 +115,48 @@ struct BDim {
 
     // The window around point v is [w0(v), w1(v)).
     // 0 <= w0(v) <= v < w1(v) <= size
-    inline int w0(int v) const {
+    inline int w0(int v) {
+        double mid_coord;
+	PyArrayObject* coords_arr;
+        // PyObject* lbound;
+	// PyObject* sort_results;
+	double lbound;
+	int new_w0;
+	double new_coord;
         assert(b0 <= v);
         assert(v < b1);
-        return std::max(0, v - dim.h);
+	// return std::max(0, v - dim.h);
+	
+	// find the index of the minimum coordinate greater than
+	// (coord(v) - radius)
+	// coords_arr = (PyArrayObject*)PyArray_FROM_OTF(dim.coords, NPY_DOUBLE, NPY_IN_ARRAY);
+	// cur_coord = *(double *)(PyArray_GETPTR1(coords_arr, v));
+	// lbound = PyFloat_FromDouble(cur_coord - dim.radius);
+	// sort_results = PyArray_SearchSorted(coords_arr, lbound,
+	// 				    NPY_SEARCHLEFT, NULL);
+	// return *(int *)(PyArray_GETPTR1(sort_results, 0));
+
+	// starting from the old index, find the new index
+	coords_arr = (PyArrayObject*)PyArray_FROM_OTF(dim.coords, NPY_DOUBLE, NPY_IN_ARRAY);
+	mid_coord = *(double *)(PyArray_GETPTR1(coords_arr, v));
+	lbound = mid_coord - dim.radius;
+	if 
+	new_w0 = new int(*old_w0);
+	new_coord = *(double *)(PyArray_GETPTR1(coords_arr, new_w0));
+	if (old_v > v) {
+	  while ((new_w0 > 0) && (new_coord > lbound)) {
+	    --new_w0;
+	    new_coord = *(double *)(PyArray_GETPTR1(coords_arr, new_w0));
+	  };
+	} else {
+	  while ((new_w0 < v) && (new_coord < lbound)) {
+	    --new_w0;
+	    new_coord = *(double *)(PyArray_GETPTR1(coords_arr, new_w0));
+	  };
+	};
+	old_v = v;
+	old_w0 = new_w0;
+	return new_w0;
     }
 
     inline int w1(int v) const {
@@ -132,8 +174,9 @@ struct BDim {
     int size;
     int b0;
     int b1;
-    PyObject *coords;
-    double radius;
+    int old_v;
+    int old_w0;
+    int old_w1;
 };
 
 
@@ -297,8 +340,8 @@ private:
 template <typename T>
 class MedCalc2D {
 public:
-  MedCalc2D(int b_, Dim dimx_, Dim dimy_, const T* in_, T* out_, PyObject *times, PyObject *ranges, double time_d, double range_d)
-    : wr(b_ * b_), bx(dimx_, times, time_d), by(dimy_, ranges, range_d), in(in_), out(out_)
+  MedCalc2D(int b_, Dim dimx_, Dim dimy_, const T* in_, T* out_)
+    : wr(b_ * b_), bx(dimx_), by(dimy_), in(in_), out(out_)
     {}
 
     void run(int bx_, int by_)
@@ -406,12 +449,11 @@ void median_filter_impl_2d(int x, int y, int hx, int hy, int b, const T* in, T* 
     if (2 * hx + 1 > b || 2 * hy + 1 > b) {
         throw std::invalid_argument("window too large for this block size");
     }
-    Dim dimx(b, x, hx);
-    Dim dimy(b, y, hy);
+    Dim dimx(b, x, hx, times, time_d);
+    Dim dimy(b, y, hy, ranges, range_d);
     #pragma omp parallel
     {
-      MedCalc2D<T> mc(b, dimx, dimy, in, out, times, ranges,
-		      time_d, range_d);
+      MedCalc2D<T> mc(b, dimx, dimy, in, out);
         #pragma omp for collapse(2)
         for (int by = 0; by < dimy.count; ++by) {
             for (int bx = 0; bx < dimx.count; ++bx) {
