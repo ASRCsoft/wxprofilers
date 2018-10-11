@@ -140,8 +140,12 @@ struct BDim {
 	coords_arr = (PyArrayObject*)PyArray_FROM_OTF(dim.coords, NPY_DOUBLE, NPY_IN_ARRAY);
 	mid_coord = *(double *)(PyArray_GETPTR1(coords_arr, v));
 	lbound = mid_coord - dim.radius;
-	if 
-	new_w0 = new int(*old_w0);
+	if (old_v == NULL) {
+	  old_v = 0;
+	  old_w0 = 0;
+	  return 0;
+	}
+	new_w0 = old_w0 + 0;
 	new_coord = *(double *)(PyArray_GETPTR1(coords_arr, new_w0));
 	if (old_v > v) {
 	  while ((new_w0 > 0) && (new_coord > lbound)) {
