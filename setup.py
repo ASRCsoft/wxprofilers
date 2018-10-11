@@ -24,6 +24,7 @@ def configuration(parent_package='', top_path=None):
     from numpy.distutils.misc_util import Configuration
     config = Configuration('rasppy', parent_package, top_path)
     config.add_extension('cape', sources=['src/cape.pyf','src/cape.f90'])
+    config.add_extension('rrs', sources=['src/rrs.pyf','src/BUFR_1_07_1.f', 'src/RRS_Decoder_1_04.f', 'src/unixbufr.f'])
     return config
 
 if __name__ == '__main__':
