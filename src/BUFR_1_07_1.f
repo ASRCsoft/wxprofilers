@@ -2056,7 +2056,7 @@ C  ---------------------------
       IREADERM = IRET
       RETURN                                                            
                                                                         
-c$$$      ENTRY IREADERS(LUNIT)                                             
+      ENTRY IREADERS(LUNIT)                                             
       CALL READERS(LUNIT,IRET)                                      
       IREADERS = IRET
       RETURN                                                            
@@ -2073,30 +2073,30 @@ C     CALL READMM(IMSG,SUBSET,IDATE,IRET)
 C     IREADMM = IRET
 C     RETURN                                                            
  
-c$$$c$$$      ENTRY IREADFT(LUNIT,SUBSET,IDATE)                                 
-c$$$      CALL READFT(LUNIT,SUBSET,IDATE,IRET)                           
-c$$$      IREADFT = IRET
-c$$$      RETURN                                                            
-c$$$                                                                        
-c$$$c$$$      ENTRY IREADNS(LUNIT,SUBSET,IDATE)                                 
-c$$$      CALL READNS(LUNIT,SUBSET,IDATE,IRET)                           
-c$$$      IREADNS = IRET
-c$$$      RETURN                                                            
-c$$$                                                                        
+      ENTRY IREADFT(LUNIT,SUBSET,IDATE)                                 
+      CALL READFT(LUNIT,SUBSET,IDATE,IRET)                           
+      IREADFT = IRET
+      RETURN                                                            
+                                                                        
+      ENTRY IREADNS(LUNIT,SUBSET,IDATE)                                 
+      CALL READNS(LUNIT,SUBSET,IDATE,IRET)                           
+      IREADNS = IRET
+      RETURN                                                            
+                                                                        
       ENTRY IREADSB(LUNIT)                                              
       CALL READSB(LUNIT,IRET)                                        
       IREADSB = IRET
       RETURN                                                            
-c$$$                                                                        
-c$$$c$$$      ENTRY ICOPYSB(LUNIN,LUNOT)                                        
-c$$$      CALL COPYSB(LUNIN,LUNOT,IRET)                                  
-c$$$      ICOPYSB = IRET
-c$$$      RETURN                                                            
-c$$$                                                                        
-c$$$c$$$      ENTRY IREADIBM(LUNIT,SUBSET,IDATE)                              
-c$$$      CALL READIBM(LUNIT,SUBSET,IDATE,IRET)                           
-c$$$      IREADIBM = IRET
-c$$$      RETURN                                                            
+                                                                        
+      ENTRY ICOPYSB(LUNIN,LUNOT)                                        
+      CALL COPYSB(LUNIN,LUNOT,IRET)                                  
+      ICOPYSB = IRET
+      RETURN                                                            
+                                                                        
+      ENTRY IREADIBM(LUNIT,SUBSET,IDATE)                              
+      CALL READIBM(LUNIT,SUBSET,IDATE,IRET)                           
+      IREADIBM = IRET
+      RETURN                                                            
  
       END                                                               
       FUNCTION IREV(N)
@@ -5747,7 +5747,7 @@ C  -------------------------------
       LSTR = 0                                                          
       RETURN                                                            
       END                                                               
-      SUBROUTINE STRINGBN(STR,LUN,I1,IO)
+      SUBROUTINE STRING(STR,LUN,I1,IO)
  
       PARAMETER (MXS=1000,JCONS=52)
       PARAMETER (NF=2)
@@ -6287,7 +6287,7 @@ C  --------------------------------
 C  PARSE THE INPUT STRING                                               
 C  ----------------------                                               
                                                                         
-      CALL STRINGBN(STR,LUN,I1,0)                                         
+      CALL STRING(STR,LUN,I1,0)                                         
                                                                         
 C  SET INITIAL VALUES FOR RETURNING ARGUMENTS                           
 C  ------------------------------------------                           
@@ -6408,7 +6408,7 @@ C  ---------------------------------------------
 C  PARSE THE STRING                                                     
 C  ----------------                                                     
                                                                         
-      CALL STRINGBN(STR,LUN,I1,0)                                         
+      CALL STRING(STR,LUN,I1,0)                                         
                                                                         
 C  EXPAND THE TEMPLATE FOR THIS SUBSET AS LITTLE AS POSSIBLE            
 C  ---------------------------------------------------------            
@@ -6494,7 +6494,7 @@ C  ---------------------------------------------------------------
       IO = MIN(MAX(0,IL),1)                                             
       IF(LUNIT.NE.LUNIN) IO = 0                                         
                                                                         
-      CALL STRINGBN(STR,LUN,I1,IO)                                        
+      CALL STRING(STR,LUN,I1,IO)                                        
                                                                         
 C  INITIALIZE USR ARRAY PRECEEDING AN INPUT OPERATION                   
 C  --------------------------------------------------                   
@@ -6558,7 +6558,7 @@ C  --------------------------------
 C  PARSE THE INPUT STRING - READ/WRITE VALUES                           
 C  ------------------------------------------                           
                                                                         
-      CALL STRINGBN(STR,LUN,I1,IO)                                        
+      CALL STRING(STR,LUN,I1,IO)                                        
       CALL TRYBUMP(LUNIT,LUN,USR,I1,I2,IO,IRET)                         
                                                                         
       IF(IO.EQ.1 .AND. IRET.NE.I2) THEN                                 
@@ -6612,7 +6612,7 @@ C  --------------------------------------------------
 C  PARSE THE INPUT STRING - READ/WRITE VALUES                           
 C  ------------------------------------------                           
                                                                         
-      CALL STRINGBN(STR,LUN,I1,IO)                                        
+      CALL STRING(STR,LUN,I1,IO)                                        
       CALL UFBRP(LUN,USR,I1,I2,IO,IRET)                                 
                                                                         
       IF(IO.EQ.1 .AND. IRET.LT.I2) THEN                                 
@@ -7053,7 +7053,7 @@ C  --------------------------------------------------
 C  PARSE THE INPUT STRING - READ/WRITE VALUES                           
 C  ------------------------------------------                           
                                                                         
-      CALL STRINGBN(STR,LUN,I1,IO)                                        
+      CALL STRING(STR,LUN,I1,IO)                                        
       CALL UFBSP(LUN,USR,I1,I2,IO,IRET)                                 
                                                                         
       IF(IO.EQ.1 .AND. IRET.NE.I2) THEN                                 
@@ -7134,7 +7134,7 @@ C  ---------------------------------
                                                                         
 10    CALL READMG(LUNIT,SUBSET,JDATE,MRET)                              
       IF(MRET.NE.0) GOTO 25                                             
-      CALL STRINGBN(STR,LUN,I1,0)                                         
+      CALL STRING(STR,LUN,I1,0)                                         
       IF(IREC.GT.0) NODS(IREC) = 0                                      
       IF(ISUB.GT.0) NODS(ISUB) = 0                                      
                                                                         

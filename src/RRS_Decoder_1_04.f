@@ -49,8 +49,7 @@ c    Revision 1.01
 c     06/2005/LJG  Expanded code to decode all elements and write
 c      text data to seven files.
 c
-      subroutine decode_rss(bufrin, outpts)
-c$$$      PROGRAM RRS_DECODER   
+      subroutine RRS_DECODER(bufrin, outpts)
 
       implicit none
 
@@ -99,7 +98,7 @@ c
 c   SET INPUT VARIABLES TO SPACES...
 c
       do ix=1, 80
-       bufrin(ix:ix) = ' '
+c$$$       bufrin(ix:ix) = ' '
        outdir(ix:ix) = ' '
       enddo
 c
@@ -134,9 +133,9 @@ c
 c  FOR DISTRIBUTION PURPOSES PROGRAM ARGUMENTS ARE ACCEPTED FROM 
 c  STANDARD INPUT.  
 c
-      write(6, 30)
- 30   format(/' Enter BUFR Input Path and Filename:')
-      read(5, '(a)') bufrin
+c$$$      write(6, 30)
+c$$$ 30   format(/' Enter BUFR Input Path and Filename:')
+c$$$      read(5, '(a)') bufrin
 c
 c  LOCATE THE SEPARATING CHARACTER BETWEEN THE DIRECTORY AND
 c  FILENAME.  THE DIRECTORY GETS USED IN THE CREATION OF 
@@ -178,18 +177,18 @@ c    &   ' C = Celcius')
 c     read(5, '(a1)') tconv
       call set_tc (tconv)
 c
-      outpts = '       '
-c
-      write(6, 70)
- 70   format(/'ENTER NUMERIC CODE FOR FILES TO WRITE: '
-     & /'Example:  1234567 or a blank entry  Selects ALL'
-     & /'          1257 selects metadata, and PTU Files'
-     & /'  1 = Metadata,                 5 = processed PTU,'
-     & /'  2 = raw PTU,                  6 = processed GPS,'
-     & /'  3 = raw GPS unsmoothed,       7 = Standard & Sig Levels'
-     & /'  4 = raw GPS smoothed,')
-c
-      read(5,'(a)') outpts
+c$$$      outpts = '       '
+c$$$c
+c$$$      write(6, 70)
+c$$$ 70   format(/'ENTER NUMERIC CODE FOR FILES TO WRITE: '
+c$$$     & /'Example:  1234567 or a blank entry  Selects ALL'
+c$$$     & /'          1257 selects metadata, and PTU Files'
+c$$$     & /'  1 = Metadata,                 5 = processed PTU,'
+c$$$     & /'  2 = raw PTU,                  6 = processed GPS,'
+c$$$     & /'  3 = raw GPS unsmoothed,       7 = Standard & Sig Levels'
+c$$$     & /'  4 = raw GPS smoothed,')
+c$$$c
+c$$$      read(5,'(a)') outpts
       call setwrt (outpts, dowrt)
 
 C  OPEN THE FILE TO THE PROGRAM AND TO THE BUFRLIB
@@ -627,10 +626,10 @@ c
       close (24)
       close (25)
 c
-      write(6, 150)
- 150  format(/' Successful End, Press  ENTER  To EXIT')
-      read(5, '(a1)') opt
-      STOP 
+c$$$      write(6, 150)
+c$$$ 150  format(/' Successful End, Press  ENTER  To EXIT')
+c$$$      read(5, '(a1)') opt
+c$$$      STOP 
       END
 C
 C========================================================
