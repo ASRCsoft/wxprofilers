@@ -1,18 +1,15 @@
 '''A python interface to the RRS Decoder.'''
 
-import ctypes
-rrs = ctypes.cdll.LoadLibrary('../src/rss.so')
-rrs_decoder = rrs.rrs_decoder_
-rrs_decoder.argtypes = [ctypes.c_char_p, ctypes.c_char_p,
-                        ctypes.c_long, ctypes.c_long]
-rrs_decoder.restype = None
+from pathlib import Path
+from . import rrs_
 
+def decode_rrs(bufrin, outputs, outdir=''):
+    '''Run the RRS Decoder program provided by NOAA.
 
-def decode_rrs(path, outputs):
-    '''Generate text files from radiosonde data in bufr format using the
-RRS Decoder tool provided by NOAA.
-
+    bufrin (str): path to the radiosonde bufr file.
+    outputs (str): desired output files (see RRS Decoder documentation).
+    outdir (str): output directory.
     '''
-    bufrin = bytes(path, 'utf-8')
-    outpts = bytes(outputs, 'utf-8')
-    rrs_decoder(bufrin, outpts, len(bufrin), len(outpts))
+    # try to make sure the path is handled correctly
+    out = str(Path(outdir)) + '/'
+    rrs_.rrs_decoder(bufrin, outputs, out)

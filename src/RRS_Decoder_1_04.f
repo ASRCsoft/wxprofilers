@@ -49,7 +49,7 @@ c    Revision 1.01
 c     06/2005/LJG  Expanded code to decode all elements and write
 c      text data to seven files.
 c
-      subroutine RRS_DECODER(bufrin, outpts)
+      subroutine RRS_DECODER(bufrin, outpts, outdirin)
 
       implicit none
 
@@ -72,7 +72,7 @@ c
 c
       common /fninfo/ lendir, op19, op20, op21, op22, op23, op24,
      &  op25, fname, outdir, stname
-      character fname*28, outdir*80, stname*32
+      character fname*28, outdir*80, stname*32, outdirin*80
       integer lendir
       logical op19, op20, op21, op22, op23, op24, op25
 c
@@ -99,8 +99,9 @@ c   SET INPUT VARIABLES TO SPACES...
 c
       do ix=1, 80
 c$$$       bufrin(ix:ix) = ' '
-       outdir(ix:ix) = ' '
+c$$$       outdir(ix:ix) = ' '
       enddo
+      outdir = outdirin
 c
 c  THE FOLLOWING COMMENTED OUT STATEMENTS ALLOW ENTRY OF PROGRAM 
 c  ARGUMENT ON THE COMMAND LINE.  
@@ -152,7 +153,12 @@ c
        endif
       enddo
 c
-      outdir = bufrin(1:lendir)
+      if (outdir.eq.'') then
+         write(*,*) 'overwriting outdir'
+         outdir = bufrin(1:lendir)
+      else
+         lendir = LEN_TRIM(outdir)
+      endif
 c
 c  DETERMINE WHETHER OR NOT THE BUFR FILE CAN BE FOUND.
 c
@@ -629,7 +635,12 @@ c
 c$$$      write(6, 150)
 c$$$ 150  format(/' Successful End, Press  ENTER  To EXIT')
 c$$$      read(5, '(a1)') opt
-c$$$      STOP 
+c$$$  STOP
+
+C     close the connection to the bufrin file
+      close(8)
+      call CLRSTBFR()
+      
       END
 C
 C========================================================

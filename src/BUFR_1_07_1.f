@@ -8625,3 +8625,16 @@ C  -----------------------
 903   CALL BORT('WTSTAT - BAD IM                                  ')   
 905   CALL BORT('WTSTAT - ATTEMPT TO REDEFINE EXISITING FILE UNIT ')   
       END                                                               
+
+
+C     Clear IOLUN so that we can write new files
+      SUBROUTINE CLRSTBFR()
+      PARAMETER (NF=2)
+      COMMON /STBFR/ IOLUN(NF),IOMSG(NF)
+
+      DO I=1,NF                                                     
+         IOLUN(I) = 0                                                      
+         IOMSG(I) = 0                                                      
+      ENDDO
+      END
+      
