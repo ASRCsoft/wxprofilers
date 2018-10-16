@@ -92,8 +92,8 @@ c
       rslash = char(92)   ! Define Backslash or Reverse Slash...
 c
 c    NCDC ADDED CODE...
-      write(6, 20) 
- 20   format(/' Program: RRS_Decoder.exe   Ver. 1.04')
+c$$$      write(6, 20) 
+c$$$ 20   format(/' Program: RRS_Decoder.exe   Ver. 1.04')
 c
 c   SET INPUT VARIABLES TO SPACES...
 c
@@ -154,7 +154,6 @@ c
       enddo
 c
       if (outdir.eq.'') then
-         write(*,*) 'overwriting outdir'
          outdir = bufrin(1:lendir)
       else
          lendir = LEN_TRIM(outdir)
@@ -203,8 +202,8 @@ C  -----------------------------------------------
       OPEN( 8, FILE=bufrin, FORM='UNFORMATTED', STATUS='old',
      & ACCESS='sequential', IOSTAT=ios)
 C
-      write(6, 80)ios
- 80   format(/'Opening BUFR file, IOSTAT =',i5)
+c$$$      write(6, 80)ios
+c$$$ 80   format(/'Opening BUFR file, IOSTAT =',i5)
 
       CALL OPENBF(8,'IN',8)
 c
@@ -659,13 +658,13 @@ c
 c  ASSIGN "C" IF UNMATCHED...
         tconv = 'C'      
        endif
-       if (tconv.eq.'C') then
-        write(6, 62) 
- 62     format(/'NOTE:  Output Temperatures Are In CELCIUS')
-       else
-        write(6, 64)
- 64     format(/'NOTE:  Output Temperatures Are In KELVIN')
-       endif
+c$$$       if (tconv.eq.'C') then
+c$$$        write(6, 62) 
+c$$$ 62     format(/'NOTE:  Output Temperatures Are In CELCIUS')
+c$$$       else
+c$$$        write(6, 64)
+c$$$ 64     format(/'NOTE:  Output Temperatures Are In KELVIN')
+c$$$       endif
 c
        return
        end
@@ -1286,9 +1285,9 @@ C
         of19 = outdir(1:lendir) // fname
         open(19, file=of19, status='unknown')
         lenout = lendir + 26
-        write(6, 10) of19(1:lenout)
- 10     format(/'Opening O/P File:'
-     &   /3x,a,'   (Metadata)')
+c$$$        write(6, 10) of19(1:lenout)
+c$$$ 10     format(/'Opening O/P File:'
+c$$$     &   /3x,a,'   (Metadata)')
 c
 c  WRITE COLUMN HEADERS ...
 c
@@ -1541,9 +1540,9 @@ C
         of20 = outdir(1:lendir) // fname 
         open(20, file=of20, status='unknown')
         lenout = lendir + 26
-        write(6, 10) of20(1:lenout)
- 10     format(/'Opening O/P File:'
-     &   /3x,a,'   (raw PTU,               high resolution, 1-sec)')
+c$$$        write(6, 10) of20(1:lenout)
+c$$$ 10     format(/'Opening O/P File:'
+c$$$     &   /3x,a,'   (raw PTU,               high resolution, 1-sec)')
 c
 c  WRITE COLUMN HEADERS ...
 c
@@ -1733,9 +1732,9 @@ C
         of21 = outdir(1:lendir) // fname 
         open(21, file=of21, status='unknown')
         lenout = lendir + 26
-        write(6, 10) of21(1:lenout)
- 10     format(/'Opening O/P File:'
-     &   /3x,a,'   (raw GPS unsmoothed,    high resolution, 1-sec)')
+c$$$        write(6, 10) of21(1:lenout)
+c$$$ 10     format(/'Opening O/P File:'
+c$$$     &   /3x,a,'   (raw GPS unsmoothed,    high resolution, 1-sec)')
 c
 c  WRITE COLUMN HEADERS ...
 c
@@ -1932,9 +1931,9 @@ C
         of22 = outdir(1:lendir) // fname 
         open(22, file=of22, status='unknown')
         lenout = lendir + 26
-        write(6, 10) of22(1:lenout)
- 10     format(/'Opening O/P File:'
-     &   /3x,a,'   (raw GPS smoothed,      high resolution, 1-sec)')
+c$$$        write(6, 10) of22(1:lenout)
+c$$$ 10     format(/'Opening O/P File:'
+c$$$     &   /3x,a,'   (raw GPS smoothed,      high resolution, 1-sec)')
 c
 c  WRITE COLUMN HEADERS ...
 c
@@ -2139,9 +2138,9 @@ C
         of23 = outdir(1:lendir) // fname 
         open(23, file=of23, status='unknown')
         lenout = lendir + 26
-        write(6, 10) of23(1:lenout)
- 10     format(/'Opening O/P File:'
-     &   /3x,a,'   (processed PTU,         high resolution, 1-sec)')
+c$$$        write(6, 10) of23(1:lenout)
+c$$$ 10     format(/'Opening O/P File:'
+c$$$     &   /3x,a,'   (processed PTU,         high resolution, 1-sec)')
 c
 c  WRITE COLUMN HEADERS ...
 c
@@ -2406,9 +2405,9 @@ C
         of24 = outdir(1:lendir) // fname 
         open(24, file=of24, status='unknown')
         lenout = lendir + 26
-        write(6, 10) of24(1:lenout)
- 10     format(/'Opening O/P File:'
-     &   /3x,a,'   (processed GPS,         high resolution, 1-sec)')
+c$$$        write(6, 10) of24(1:lenout)
+c$$$ 10     format(/'Opening O/P File:'
+c$$$     &   /3x,a,'   (processed GPS,         high resolution, 1-sec)')
 c
 c  WRITE COLUMN HEADERS ...
 c
@@ -2603,9 +2602,9 @@ C
         open(25, file=of25, status='unknown')
 c
         lenout = lendir + 26
-        write(6, 10) of25(1:lenout)
- 10     format(/'Opening O/P File:'
-     &   /3x,a,'   (Standard & Sig Levels, low resolution)')
+c$$$        write(6, 10) of25(1:lenout)
+c$$$ 10     format(/'Opening O/P File:'
+c$$$     &   /3x,a,'   (Standard & Sig Levels, low resolution)')
 c
 c  WRITE COLUMN HEADERS ...
 c
