@@ -250,13 +250,13 @@ C.KRK      PRINT*,STR
 C.KRK      PRINT*,'************************ABORT**************************'
 C.KRK      PRINT*
 
-      PRINT*
+c$$$      PRINT*
       PRINT*,'************************ABORT**************************'
       PRINT*,STR                                                        
       PRINT*,'************************ABORT**************************'
-      PRINT*
-c      call abort()
-      STOP
+c$$$      PRINT*
+c$$$c      call abort()
+c$$$      STOP
 c
 C.LJG      CHARACTER*8 CCYYMMDD
 C.LJG      CHARACTER*10 HHMMSS
