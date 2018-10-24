@@ -30,6 +30,9 @@ def configuration(parent_package='', top_path=None):
     config.add_extension('cape', sources=['src/cape.pyf', 'src/cape.f90'])
     config.add_extension('median', sources=['src/filter.cc'], language='C++')
     config.add_subpackage('segmentation', subpackage_path='rasppy/segmentation')
+    config.add_library('BUFR_1_07_1', sources=['src/BUFR_1_07_1.f'])
+    config.add_extension('rrs_', sources=['src/RRS_Decoder_1_04.f'],
+                         libraries=['BUFR_1_07_1'])
     return config
 
 if __name__ == '__main__':
