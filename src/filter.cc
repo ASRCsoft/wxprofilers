@@ -116,10 +116,8 @@ struct BDim {
 	old_w0_v = 0;
 	old_w0 = 0;
 	// start at v=-1, so have to search up from w1=0
-	// old_w1_v = -1;
-	// old_w1 = 0;
-	old_w1_v = size;
-	old_w1 = size;
+	old_w1_v = -1;
+	old_w1 = 0;
     }
 
     // The window around point v is [w0(v), w1(v)).
@@ -128,21 +126,11 @@ struct BDim {
         double mid_coord;
 	PyArrayObject* coords_arr;
 	double low_bound;
-	// PyObject* lbound;
-        // PyObject* sort_results;
         assert(b0 <= v);
         assert(v < b1);
-	// return std::max(0, v - dim.h);
 
-	// // find the index of the minimum coordinate greater than
-	// // (coord(v) - radius)
-	// coords_arr = (PyArrayObject*)PyArray_FROM_OTF(dim.coords, NPY_DOUBLE, NPY_IN_ARRAY);
-	// mid_coord = *(double *)(PyArray_GETPTR1(coords_arr, v + start));
-	// lbound = PyFloat_FromDouble(mid_coord - dim.radius);
-	// sort_results = PyArray_SearchSorted(coords_arr, lbound,
-	// 				    NPY_SEARCHLEFT, NULL);
-	// return std::max(0, *(int *)(PyArray_GETPTR1(sort_results, 0)) - start);
-
+	// find the index of the minimum coordinate greater than
+	// (coord(v) - radius)
 	if (v == old_w0_v) {
 	  return old_w0;
 	}
@@ -168,27 +156,11 @@ struct BDim {
         double mid_coord;
         PyArrayObject* coords_arr;
         double up_bound;
-	// PyObject* lbound;
-        // PyObject* sort_results;
-	int i1 = 0;
-	int i2 = 0;
         assert(b0 <= v);
         assert(v < b1);
-        // return std::min(v + 1 + dim.h, size);
 
-	// // find the index of the minimum coordinate greater than
-	// // (coord(v) - radius)
-	// coords_arr = (PyArrayObject*)PyArray_FROM_OTF(dim.coords, NPY_DOUBLE, NPY_IN_ARRAY);
-	// mid_coord = *(double *)(PyArray_GETPTR1(coords_arr, v + start));
-	// lbound = PyFloat_FromDouble(mid_coord + dim.radius);
-	// sort_results = PyArray_SearchSorted(coords_arr, lbound,
-	// 				    NPY_SEARCHRIGHT, NULL);
-	// return std::min(*(int *)(PyArray_GETPTR1(sort_results, 0)) - start, size);
-
-	assert(v >= 0);
-	assert(size >= 0);
-	assert(old_w1 >= 0);
-	assert(old_w1 <= size);
+	// find the index of the maximum coordinate less than
+	// (coord(v) + radius)
 	if (v == old_w1_v) {
 	  return old_w1;
 	}
@@ -198,34 +170,15 @@ struct BDim {
 	assert(up_bound > mid_coord + 74.5);
 	if (v > old_w1_v) {
 	  // starting from the old index, search up to find the new index
-	  while ((old_w1 < size) && (*(double *)(PyArray_GETPTR1(coords_arr, old_w1 + 1 + start)) < up_bound)) {
+	  while (old_w1 < size - 1 && (*(double *)(PyArray_GETPTR1(coords_arr, old_w1 + 1 + start)) < up_bound)) {
 	    old_w1++;
-	    i1++;
 	  };
-	  // lbound = PyFloat_FromDouble(mid_coord + dim.radius);
-	  // sort_results = PyArray_SearchSorted(coords_arr, lbound,
-	  // 				      NPY_SEARCHRIGHT, NULL);
-	  // old_w1_v = v;
-	  // old_w1 = std::min(*(int *)(PyArray_GETPTR1(sort_results, 0)) - start, size);
-	  // return old_w1;
 	} else {
 	  // starting from the old index, search down to find the new index
-	  while ((old_w1 > 0) && (*(double *)(PyArray_GETPTR1(coords_arr, old_w1 + start)) >= up_bound)) {
+	  while (old_w1 > 0 && (*(double *)(PyArray_GETPTR1(coords_arr, old_w1 + start)) >= up_bound)) {
 	    old_w1--;
-	    i2++;
 	  };
-	  // lbound = PyFloat_FromDouble(mid_coord + dim.radius);
-	  // sort_results = PyArray_SearchSorted(coords_arr, lbound,
-	  // 				      NPY_SEARCHRIGHT, NULL);
-	  // old_w1_v = v;
-	  // old_w1 = std::min(*(int *)(PyArray_GETPTR1(sort_results, 0)) - start, size);
-	  // return old_w1;
 	};
-	// assert((i1 == 0) && (i2 == 0));
-	// assert((i1 > 0) && (i2 > 0));
-	// assert(i2 >= 0);
-	assert(old_w1 >= 0);
-	assert(old_w1 <= size);
 	old_w1_v = v;
 	return old_w1;
     }
