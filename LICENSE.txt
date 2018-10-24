@@ -1,0 +1,11 @@
+The license for rasppy has yet to be determined.
+
+
+
+--- Included Software ---
+
+Name: RRS Decoder
+Files: src/BUFR_1_07_1.f, src/RRS_Decoder_1_04.f
+License: public domain
+  For details, see README.txt in
+  ftp://ftp.ncdc.noaa.gov/pub/data/ua/rrs-data/RRS_Decoder_1_04.zip
