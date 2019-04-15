@@ -35,3 +35,9 @@ Source: https://github.com/suomela/mf2d
 Files: src/filter.cc
 License: MIT
   For details, see https://github.com/suomela/mf2d#license
+
+Name: NIPY
+Source: https://github.com/nipy/nipy
+Files: rasppy/segmentation/*
+License: 3-clause BSD
+  For details, see https://github.com/nipy/nipy/blob/master/LICENSE
