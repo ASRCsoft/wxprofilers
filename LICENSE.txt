@@ -19,3 +19,19 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+
+--- Included Software ---
+
+Name: RRS Decoder
+Source: ftp://ftp.ncdc.noaa.gov/pub/data/ua/rrs-data/RRS_Decoder_1_04.zip
+Files: src/BUFR_1_07_1.f, src/RRS_Decoder_1_04.f
+License: public domain
+  For details, see README.txt in
+  ftp://ftp.ncdc.noaa.gov/pub/data/ua/rrs-data/RRS_Decoder_1_04.zip
+
+Name: mf2d
+Source: https://github.com/suomela/mf2d
+Files: src/filter.cc
+License: MIT
+  For details, see https://github.com/suomela/mf2d#license

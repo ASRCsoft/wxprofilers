@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 
-import sys
+from __future__ import absolute_import
 from distutils.core import setup
-from distutils.core import Extension
+from Cython.Build import cythonize
+
 
 setup(name='raspPy',
       version='0.1dev',
@@ -14,9 +15,12 @@ setup(name='raspPy',
       test_suite='nose.collector',
       tests_require=['nose'],
       install_requires=[
+          'cython',
+          'matplotlib',
           'xarray',
           'metpy',
-          'statsmodels'
+          'statsmodels',
+          'nipy'
       ]
 )
 
@@ -24,10 +28,13 @@ setup(name='raspPy',
 def configuration(parent_package='', top_path=None):
     from numpy.distutils.misc_util import Configuration
     config = Configuration('rasppy', parent_package, top_path)
-    config.add_extension('cape', sources=['src/cape.pyf','src/cape.f90'])
+    config.add_extension('cape', sources=['src/cape.pyf', 'src/cape.f90'])
+    config.add_extension('median', sources=['src/filter.cc'], language='C++')
+    config.add_subpackage('segmentation', subpackage_path='rasppy/segmentation')
     config.add_library('BUFR_1_07_1', sources=['src/BUFR_1_07_1.f'])
     config.add_extension('rrs_', sources=['src/RRS_Decoder_1_04.f'],
                          libraries=['BUFR_1_07_1'])
+    config.ext_modules += cythonize("rasppy/uniform.pyx")
     return config
 
 if __name__ == '__main__':
