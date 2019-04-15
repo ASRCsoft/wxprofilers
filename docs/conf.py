@@ -50,7 +50,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'raspPy'
-copyright = u'2017, William May'
+copyright = u'2019, SUNY RF'
 author = u'William May'
 
 # The version info for the project you're documenting, acts as replacement for
