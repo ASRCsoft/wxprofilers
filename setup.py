@@ -4,7 +4,7 @@ from Cython.Build import cythonize
 
 def configuration(parent_package='', top_path=None):
     from numpy.distutils.misc_util import Configuration
-    config = Configuration('rasppy', parent_package, top_path)
+    config = Configuration('wxprofilers', parent_package, top_path)
     config.add_extension('cape', sources=['src/cape.pyf', 'src/cape.f90'])
     config.add_extension('median', sources=['src/filter.cc'], language='C++')
     config.add_subpackage('segmentation', subpackage_path='rasppy/segmentation')
