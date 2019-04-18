@@ -2,8 +2,8 @@
 Estimate measurement confidence using a hidden markov random field model
 '''
 
-from rasppy.segmentation import Segmentation
-from rasppy.segmentation.segmentation import nonzero, log
+from wxprofilers.segmentation import Segmentation
+from wxprofilers.segmentation.segmentation import nonzero, log
 import numpy as np
 import xarray as xr
 from scipy.ndimage import uniform_filter, median_filter, gaussian_filter
@@ -178,7 +178,7 @@ def make_segmentation(rws, cnr, median_size=(7, 59),
     Make a nipy-style segmentation object given radial wind speed and
     CNR arrays
 
-    seg_args are passed to rasppy.segmentation.Segmentation
+    seg_args are passed to wxprofilers.segmentation.Segmentation
 
     '''
     # get the filtered values

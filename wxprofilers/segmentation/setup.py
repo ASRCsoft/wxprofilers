@@ -7,14 +7,14 @@ from distutils.core import setup
 from setuptools.extension import Extension
 from Cython.Build import cythonize
 
-sourcefiles = ['rasppy/segmentation/_segmentation.pyx',
-               'rasppy/segmentation/mrf.c']
+sourcefiles = ['wxprofilers/segmentation/_segmentation.pyx',
+               'wxprofilers/segmentation/mrf.c']
 
-extensions = [Extension("rasppy.segmentation._segmentation",
+extensions = [Extension("wxprofilers.segmentation._segmentation",
                         sourcefiles)]
 
 setup(
-    packages=['rasppy.segmentation'],
+    packages=['wxprofilers.segmentation'],
     ext_modules = cythonize(extensions),
     include_dirs=[np.get_include()]
 )

@@ -6,8 +6,8 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
-import rasppy.utils as rasp
-import rasppy.cape as cape
+import wxprofilers.utils as rasp
+import wxprofilers.cape as cape
 
 # rewriting as an xarray module, following the guidelines here:
 # http://xarray.pydata.org/en/stable/internals.html#extending-xarray
