@@ -3,9 +3,9 @@ from __future__ import absolute_import
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 
 import numpy as np
-from distutils.core import setup
-from setuptools.extension import Extension
 from Cython.Build import cythonize
+from numpy.distutils.misc_util import Configuration
+from numpy.distutils.core import setup, Extension
 
 sourcefiles = ['wxprofilers/segmentation/_segmentation.pyx',
                'wxprofilers/segmentation/mrf.c']
