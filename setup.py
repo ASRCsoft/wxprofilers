@@ -17,10 +17,10 @@ def configuration(parent_package='', top_path=None):
 
 
 setup(version='0.1dev',
-      description='Utilities for working with weather profile data with xarray',
-      url='https://github.com/ASRCsoft/ipas_python',
+      description='Utilities for working with weather profiler instruments',
+      url='https://github.com/ASRCsoft/wxprofilers',
       author='William May',
-      author_email='williamcmay@live.com',
+      author_email='wcmay@albany.edu',
       test_suite='nose.collector',
       tests_require=['nose'],
       install_requires=[
