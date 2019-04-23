@@ -1,8 +1,10 @@
 # wxprofilers
 Python package with utilities for weather profiler instruments
 
-## Documentation
-[rasppy.readthedocs.io/en/latest/](http://rasppy.readthedocs.io/en/latest/)
+## ~~Documentation~~
+~~[rasppy.readthedocs.io/en/latest/](http://rasppy.readthedocs.io/en/latest/)~~
+
+(It's a work in progress.)
 
 ## Installation
 wxprofilers can be installed with pip:
