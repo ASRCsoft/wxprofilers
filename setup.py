@@ -6,7 +6,7 @@ from numpy.distutils.core import setup
 
 def configuration(parent_package='', top_path=None):
     config = Configuration('wxprofilers')
-    config.add_extension('cape', sources=['src/cape.f90'])
+    config.add_extension('cape', sources=['src/getcape.f90'])
     config.add_extension('median', sources=['src/filter.cc'], language='C++')
     config.add_subpackage('segmentation', subpackage_path='wxprofilers/segmentation')
     config.add_library('BUFR_1_07_1', sources=['src/BUFR_1_07_1.f'])

@@ -44,5 +44,5 @@ License: 3-clause BSD
 
 Name: getcape
 Source: http://www2.mmm.ucar.edu/people/bryan/Code/getcape.F
-Files: src/cape.f90
+Files: src/getcape.f90
 License: MIT
