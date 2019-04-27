@@ -17,11 +17,11 @@ Suggested packages
 Installing from Github
 ----------------------
 
-raspPy can be installed from github with pip::
+``wxprofilers`` can be installed from github with pip::
   
-  pip install git+https://github.com/ASRCsoft/raspPy.git
+  pip install git+https://github.com/ASRCsoft/wxprofilers.git
 
 
 Recommended Python version
 --------------------------
-raspPy is currently being developed in Python 3, so Python 3 is recommended.
+``wxprofilers`` is currently being developed in Python 3, so Python 3 is recommended.

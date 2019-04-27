@@ -1,23 +1,17 @@
-.. raspPy documentation master file, created by
+.. wxprofilers documentation master file, created by
    sphinx-quickstart on Fri Jun 30 17:02:08 2017.
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-raspPy: Atmospheric Profile Time Series in Python
-=================================================
+wxprofilers: Weather profiler instruments in Python
+===================================================
 
-raspPy is a package that extends `xarray
-<http://xarray.pydata.org/en/stable/index.html>`_ with utilities for
-working with atmospheric profile time series, with code specifically
-for lidar and microwave radiometer data.
-
-The package includes two sets of code:
-
-1. Functions to convert data into xarray objects, and
-2. xarray modules that simplify common tasks
-
-..
-   To take full advantage of raspPy users should refer to the xarray documentation.
+``wxprofilers`` provides tools for working with weather profiler
+instruments such as wind lidars, microwave radiometers, and
+radiosondes in Python. It provides functions for converting data files
+into `xarray <http://xarray.pydata.org/en/stable/index.html>`_ and
+`pandas <https://pandas.pydata.org/>`_ objects, and functions for
+deriving weather variables such as wind speeds, PBL height, and cape.
 
 Contents:
 
@@ -25,7 +19,9 @@ Contents:
    :maxdepth: 2
 
    installation
-   converting
+   wind_lidars
+   mwr
+   sonde
    plotting
 
 Indices and tables
