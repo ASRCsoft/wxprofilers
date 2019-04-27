@@ -1,7 +1,7 @@
 '''A python interface to the RRS Decoder.'''
 
 from pathlib import Path
-from . import rrs_
+from wxprofilers import rrs_
 
 def decode_rrs(bufrin, outputs, outdir=''):
     '''Run the RRS Decoder program provided by NOAA.
