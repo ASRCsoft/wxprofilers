@@ -8,8 +8,8 @@ in the ``wxprofilers.convert`` module.
 
    import wxprofilers.convert as wxp
 
-NYS Mesonet Lidar csv Files
----------------------------
+NYS Mesonet csv files
+---------------------
 
 .. code-block:: python
 	     

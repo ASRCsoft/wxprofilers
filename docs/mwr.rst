@@ -8,8 +8,8 @@ datasets are in the ``wxprofilers.convert`` module.
 
    import wxprofilers.convert as wxp
 
-NYS Mesonet Microwave Radiometer csv Files
-------------------------------------------
+Radiometrics csv files
+----------------------
 
 .. code-block:: python
 	     

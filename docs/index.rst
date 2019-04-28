@@ -13,13 +13,12 @@ into `xarray <http://xarray.pydata.org/en/stable/index.html>`_ and
 `pandas <https://pandas.pydata.org/>`_ objects, and functions for
 deriving weather variables such as wind speeds, PBL height, and cape.
 
-Contents:
-
 .. toctree::
    :maxdepth: 2
+   :caption: Documentation
 
    installation
-   wind_lidars
+   wind-lidars
    mwr
    sonde
    plotting
