@@ -1,5 +1,5 @@
-import wxprofilers.modules
-import wxprofilers.convert
-import wxprofilers.utils
-import wxprofilers.cape
-import wxprofilers.segmentation
+from . import modules
+from . import convert
+from . import utils
+from . import cape
+from . import segmentation
