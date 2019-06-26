@@ -27,10 +27,13 @@ setup(version='0.1dev',
       install_requires=[
           'cython',
           'matplotlib',
-          'xarray',
           'metpy',
+          'nipy',
+          'numpy',
+          'pandas',
+          'scipy',
           'statsmodels',
-          'nipy'
+          'xarray'
       ],
       **configuration(top_path='').todict()
 )
