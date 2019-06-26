@@ -1,0 +1,12 @@
+name: wxprofilers-docs
+dependencies:
+  - gfortran_linux-64 
+  - cython
+  - matplotlib
+  - metpy
+  - nipy
+  - numpy
+  - pandas
+  - scipy
+  - statsmodels
+  - xarray
