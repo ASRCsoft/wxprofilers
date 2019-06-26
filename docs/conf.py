@@ -20,7 +20,8 @@ import os
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 sys.path.insert(0, os.path.abspath('..'))
 # also add path for compiled modules
-compiled_module_path = [ f for f in os.listdir('../build') if f[:3] == 'lib' ][0]
+compiled_module_folder = [ f for f in os.listdir('../build') if f[:3] == 'lib' ][0]
+compiled_module_path = '../build/' + compiled_module_folder
 sys.path.insert(1, os.path.abspath(compiled_module_path))
 
 # -- General configuration ------------------------------------------------
