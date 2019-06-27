@@ -23,6 +23,7 @@ sys.path.insert(0, os.path.abspath('..'))
 compiled_module_folder = [ f for f in os.listdir('../build') if f[:3] == 'lib' ][0]
 compiled_module_path = '../build/' + compiled_module_folder + '/wxprofilers'
 sys.path.insert(1, os.path.abspath(compiled_module_path))
+print(sys.path)
 
 # -- General configuration ------------------------------------------------
 
