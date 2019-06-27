@@ -29,11 +29,17 @@ import os
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
+    'sphinxcontrib.apidoc',
     'sphinx.ext.autodoc',
     'sphinx.ext.mathjax'# ,
     # 'IPython.sphinxext.ipython_console_highlighting',
     # 'IPython.sphinxext.ipython_directive'
 ]
+
+apidoc_module_dir = '..'
+apidoc_output_dir = 'api'
+apidoc_excluded_paths = ['tests']
+apidoc_separate_modules = True
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
