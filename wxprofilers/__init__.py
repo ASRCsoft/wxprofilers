@@ -1,5 +1,5 @@
 from . import modules
 from . import convert
 from . import utils
-from . import cape
-from . import segmentation
+from . import _cape
+from . import _segmentation

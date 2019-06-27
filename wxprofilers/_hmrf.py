@@ -2,8 +2,8 @@
 Estimate measurement confidence using a hidden markov random field model
 '''
 
-from wxprofilers.segmentation import Segmentation
-from wxprofilers.segmentation.segmentation import nonzero, log
+from wxprofilers._segmentation import Segmentation
+from wxprofilers._segmentation.segmentation import nonzero, log
 import numpy as np
 import xarray as xr
 from scipy.ndimage import uniform_filter, median_filter, gaussian_filter

@@ -7,14 +7,14 @@ from Cython.Build import cythonize
 from numpy.distutils.misc_util import Configuration
 from numpy.distutils.core import setup, Extension
 
-sourcefiles = ['wxprofilers/segmentation/_segmentation.pyx',
-               'wxprofilers/segmentation/mrf.c']
+sourcefiles = ['wxprofilers/_segmentation/_segmentation.pyx',
+               'wxprofilers/_segmentation/mrf.c']
 
-extensions = [Extension("wxprofilers.segmentation._segmentation",
+extensions = [Extension("wxprofilers._segmentation._segmentation",
                         sourcefiles)]
 
 setup(
-    packages=['wxprofilers.segmentation'],
+    packages=['wxprofilers._segmentation'],
     ext_modules = cythonize(extensions),
     include_dirs=[np.get_include()]
 )

@@ -1,1 +1,1 @@
-from .rrs import decode_rrs
+from ._rrs import decode_rrs
