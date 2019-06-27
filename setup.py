@@ -4,6 +4,17 @@ from numpy.distutils.misc_util import Configuration
 from numpy.distutils.core import setup
 
 
+import os
+if os.environ.get('READTHEDOCS') == 'True':
+    # link to the conda fortran compiler for readthedocs
+    file_path = os.path.realpath(__file__)
+    checkout_name = os.path.basename(os.path.dirname(file_path))
+    gfortran_rel_path = '../../conda/' + checkout_name + '/bin/x86_64-conda_cos6-linux-gnu-gfortran'
+    gfortran_path = os.path.realpath(gfortran_rel_path)
+    os.environ['F77'] = gfortran_path
+    os.environ['F90'] = gfortran_path
+    
+
 def configuration(parent_package='', top_path=None):
     config = Configuration(package_name='wxprofilers', package_path='wxprofilers')
     config.add_extension('cape', sources=['src/getcape.f90'])
