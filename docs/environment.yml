@@ -1,4 +1,6 @@
 name: wxprofilers-docs
+channels:
+  - conda-forge
 dependencies:
   - gfortran_linux-64 
   - cython
