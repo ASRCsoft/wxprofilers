@@ -4,5 +4,6 @@ channels:
 dependencies:
   - gfortran_linux-64
   - cython
+  - numpy
   - sphinxcontrib-apidoc
   - sphinxcontrib-bibtex
