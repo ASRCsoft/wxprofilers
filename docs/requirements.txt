@@ -1,9 +1,3 @@
-cython
-matplotlib
-metpy
-nipy
-numpy
-pandas
-scipy
-statsmodels
-xarray
+sphinxcontrib-apidoc
+sphinxcontrib-bibtex
+sphinxcontrib-napoleon
