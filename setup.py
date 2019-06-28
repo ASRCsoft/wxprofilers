@@ -13,6 +13,22 @@ if os.environ.get('READTHEDOCS') == 'True':
     gfortran_path = os.path.realpath(gfortran_rel_path)
     os.environ['F77'] = gfortran_path
     os.environ['F90'] = gfortran_path
+    # remove some package dependencies
+    install_requires=[
+        'cython',
+        'numpy'
+    ]
+else:
+    install_requires=[
+        'cython',
+        'matplotlib',
+        'metpy',
+        'numpy',
+        'pandas',
+        'scipy',
+        'statsmodels',
+        'xarray'
+    ]
     
 
 def configuration(parent_package='', top_path=None):
@@ -36,16 +52,6 @@ setup(version='0.1dev',
       author_email='wcmay@albany.edu',
       test_suite='nose.collector',
       tests_require=['nose'],
-      install_requires=[
-          'cython',
-          'matplotlib',
-          'metpy',
-          'nipy',
-          'numpy',
-          'pandas',
-          'scipy',
-          'statsmodels',
-          'xarray'
-      ],
+      install_requires=install_requires,
       **configuration(top_path='').todict()
 )
