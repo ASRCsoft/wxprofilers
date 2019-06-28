@@ -1,7 +1,7 @@
 from __future__ import absolute_import
 from Cython.Build import cythonize
 from numpy.distutils.misc_util import Configuration
-from numpy.distutils.core import setup
+from numpy.distutils.core import setup, Extension
 
 
 import os
@@ -36,6 +36,11 @@ def configuration(parent_package='', top_path=None):
     config.add_extension('_cape', sources=['src/getcape.f90'])
     config.add_extension('_median', sources=['src/filter.cc'], language='C++')
     config.add_subpackage('_segmentation', subpackage_path='wxprofilers/_segmentation')
+    seg_sourcefiles = ['wxprofilers/_segmentation/_segmentation.pyx',
+                   'wxprofilers/_segmentation/mrf.c']
+    seg_extensions = [Extension("wxprofilers._segmentation._segmentation",
+                                seg_sourcefiles)]
+    config.ext_modules += cythonize(seg_extensions)
     config.add_subpackage('sonde', subpackage_path='wxprofilers/sonde')
     config.add_subpackage('sonde/_sondepbl', subpackage_path='wxprofilers/sonde/_sondepbl')
     config.add_library('BUFR_1_07_1', sources=['src/BUFR_1_07_1.f'])
