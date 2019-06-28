@@ -4,11 +4,5 @@ channels:
 dependencies:
   - gfortran_linux-64
   - cython
-  - matplotlib
-  - numpy
-  - pandas
-  - scipy
   - sphinxcontrib-apidoc
   - sphinxcontrib-bibtex
-  - statsmodels
-  - xarray
