@@ -1,6 +1,6 @@
 from __future__ import absolute_import
+from setuptools import find_packages
 from Cython.Build import cythonize
-from numpy.distutils.misc_util import Configuration
 from numpy.distutils.core import setup, Extension
 
 
@@ -29,34 +29,31 @@ else:
         'statsmodels',
         'xarray'
     ]
-    
 
-def configuration(parent_package='', top_path=None):
-    config = Configuration(package_name='wxprofilers', package_path='wxprofilers')
-    config.add_extension('_cape', sources=['src/getcape.f90'])
-    config.add_extension('_median', sources=['src/filter.cc'], language='C++')
-    config.add_subpackage('_segmentation', subpackage_path='wxprofilers/_segmentation')
-    seg_sourcefiles = ['wxprofilers/_segmentation/_segmentation.pyx',
-                   'wxprofilers/_segmentation/mrf.c']
-    seg_extensions = [Extension("wxprofilers._segmentation._segmentation",
-                                seg_sourcefiles)]
-    config.ext_modules += cythonize(seg_extensions)
-    config.add_subpackage('sonde', subpackage_path='wxprofilers/sonde')
-    config.add_subpackage('sonde/_sondepbl', subpackage_path='wxprofilers/sonde/_sondepbl')
-    config.add_library('BUFR_1_07_1', sources=['src/BUFR_1_07_1.f'])
-    config.add_extension('_rrs_decoder', sources=['src/RRS_Decoder_1_04.f'],
-                         libraries=['BUFR_1_07_1'])
-    config.ext_modules += cythonize("wxprofilers/_uniform.pyx")
-    return config
+# organize libraries and extensions
+bufr_lib = ('BUFR_1_07_1',
+            {'depends': [], 'sources': ['src/BUFR_1_07_1.f']})
+exts = [
+    Extension('_cape', ['src/getcape.f90']),
+    Extension('_median', ['src/filter.cc'], language='c++'),
+    Extension('_rrs_decoder', ['src/RRS_Decoder_1_04.f'],
+              libraries=['BUFR_1_07_1'])
+]
+seg_ext = Extension('wxprofilers._segmentation._segmentation',
+                    ['wxprofilers/_segmentation/_segmentation.pyx',
+                     'wxprofilers/_segmentation/mrf.c'])
+exts += cythonize([seg_ext, 'wxprofilers/_uniform.pyx'])
 
-
-setup(version='0.1dev',
+setup(name='wxprofilers',
+      version='0.1dev',
       description='Utilities for working with weather profiler instruments',
       url='https://github.com/ASRCsoft/wxprofilers',
       author='William May',
       author_email='wcmay@albany.edu',
-      test_suite='nose.collector',
-      tests_require=['nose'],
+      packages=find_packages(),
+      libraries=[bufr_lib],
+      ext_modules=exts,
       install_requires=install_requires,
-      **configuration(top_path='').todict()
+      test_suite='nose.collector',
+      tests_require=['nose']
 )
