@@ -1,6 +1,7 @@
 name: wxprofilers-docs
 channels:
   - conda-forge
+  - mutirri
 dependencies:
   - gfortran_linux-64 
   - cython
@@ -9,5 +10,7 @@ dependencies:
   - pandas
   - scipy
   - sphinxcontrib-apidoc
+  - sphinxcontrib-bibtex
+  - sphinxcontrib-napoleon
   - statsmodels
   - xarray
