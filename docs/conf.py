@@ -40,7 +40,7 @@ extensions = [
 
 apidoc_module_dir = '..'
 apidoc_output_dir = 'api'
-apidoc_excluded_paths = ['tests']
+apidoc_excluded_paths = ['setup.py', 'tests']
 apidoc_separate_modules = True
 
 # Add any paths that contain templates here, relative to this directory.
