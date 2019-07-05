@@ -1,11 +1,18 @@
 from __future__ import absolute_import
+import os
 from setuptools import find_packages
 from Cython.Build import cythonize
 from numpy.distutils.core import setup, Extension
 
 
-import os
 if os.environ.get('READTHEDOCS') == 'True':
+    # print some helpful readthedocs debugging info:
+    print('------ setup.py for readthedocs ------')
+    import sys
+    print('python: ' + sys.version)
+    import sphinx
+    print('sphinx: ' + sphinx.__version__)
+    print('--------------------------------------')
     # link to the conda fortran compiler for readthedocs
     file_path = os.path.realpath(__file__)
     checkout_name = os.path.basename(os.path.dirname(file_path))

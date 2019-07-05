@@ -18,9 +18,7 @@ import os
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
-rtd_pkgs = '/home/docs/checkouts/readthedocs.org/user_builds/wxprofilers/conda/latest/lib/python3.7/site-packages'
-sys.path.insert(0, rtd_pkgs)
-
+#sys.path.insert(0, os.path.abspath('.'))
 
 # -- General configuration ------------------------------------------------
 
