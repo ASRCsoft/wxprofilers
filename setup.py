@@ -10,6 +10,8 @@ if os.environ.get('READTHEDOCS') == 'True':
     print('------ setup.py for readthedocs ------')
     import sys
     print('python: ' + sys.version)
+    import setuptools
+    print('setuptools: ' + setuptools.__version__)
     import numpy as np
     print('numpy: ' + np.__version__)
     import cython
