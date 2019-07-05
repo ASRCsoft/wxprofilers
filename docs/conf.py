@@ -297,3 +297,11 @@ texinfo_documents = [
 
 autodoc_mock_imports = ['matplotlib', 'metpy', 'pandas', 'scipy',
                         'statsmodels', 'xarray']
+
+# print helpful debugging info:
+print('--------------- conf.py --------------')
+print('python: ' + sys.version)
+import sphinx
+print('sphinx: ' + sphinx.__version__)
+print('sys.path: ' + str(sys.path))
+print('--------------------------------------')
