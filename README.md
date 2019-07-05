@@ -1,4 +1,7 @@
 # wxprofilers
+
+[![Documentation Status](https://readthedocs.org/projects/wxprofilers/badge/?version=latest)](https://wxprofilers.readthedocs.io/en/latest/?badge=latest)
+
 Python package with utilities for weather profiler instruments
 
 ## Documentation
