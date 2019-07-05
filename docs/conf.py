@@ -295,6 +295,8 @@ texinfo_documents = [
 # If true, do not generate a @detailmenu in the "Top" node's menu.
 #texinfo_no_detailmenu = False
 
+# don't build the documentation if autodoc has issues
+autodoc_warningiserror = True
 autodoc_mock_imports = ['matplotlib', 'metpy', 'pandas', 'scipy',
                         'statsmodels', 'xarray']
 
