@@ -43,12 +43,12 @@ else:
 bufr_lib = ('BUFR_1_07_1',
             {'depends': [], 'sources': ['src/BUFR_1_07_1.f']})
 exts = [
-    Extension('_cape', ['src/getcape.f90']),
-    Extension('_median', ['src/filter.cc'], language='c++'),
-    Extension('_rrs_decoder', ['src/RRS_Decoder_1_04.f'],
+    Extension('wxprofilers._cape', ['src/getcape.f90']),
+    Extension('wxprofilers._median', ['src/filter.cc'], language='c++'),
+    Extension('wxprofilers._rrs_decoder', ['src/RRS_Decoder_1_04.f'],
               libraries=['BUFR_1_07_1'])
 ]
-seg_ext = Extension('_segmentation._segmentation',
+seg_ext = Extension('wxprofilers._segmentation._segmentation',
                     ['wxprofilers/_segmentation/_segmentation.pyx',
                      'wxprofilers/_segmentation/mrf.c'])
 exts += cythonize([seg_ext, 'wxprofilers/_uniform.pyx'])
