@@ -304,8 +304,9 @@ print('python: ' + sys.version)
 import sphinx
 print('sphinx: ' + sphinx.__version__)
 print('working directory: ' + os.getcwd())
-import wxprofilers as wxp
-print('wxprofilers location: ' + wxp.__file__)
+import pkgutil
+wxp = pkgutil.get_loader('wxprofilers')
+print('wxprofilers location: ' + wxp.get_filename())
 print('conf.py location: ' + os.path.realpath(__file__))
 print('sys.path: ' + str(sys.path))
 print('--------------------------------------')
