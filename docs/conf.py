@@ -303,5 +303,9 @@ print('--------------- conf.py --------------')
 print('python: ' + sys.version)
 import sphinx
 print('sphinx: ' + sphinx.__version__)
+print('working directory: ' + os.getcwd())
+import wxprofilers as wxp
+print('wxprofilers location: ' + wxp.__file__)
+print('conf.py location: ' + os.path.realpath(__file__))
 print('sys.path: ' + str(sys.path))
 print('--------------------------------------')
