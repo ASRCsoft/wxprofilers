@@ -5,6 +5,6 @@ dependencies:
   - gfortran_linux-64
   - cython
   - numpy
-  - sphinx<2.1.2
+  - sphinx<1.8.5
   - sphinxcontrib-apidoc
   - sphinxcontrib-bibtex
