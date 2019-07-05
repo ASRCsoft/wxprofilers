@@ -10,8 +10,10 @@ if os.environ.get('READTHEDOCS') == 'True':
     print('------ setup.py for readthedocs ------')
     import sys
     print('python: ' + sys.version)
-    import sphinx
-    print('sphinx: ' + sphinx.__version__)
+    import numpy as np
+    print('numpy: ' + np.__version__)
+    import cython
+    print('cython: ' + cython.__version__)
     print('--------------------------------------')
     # link to the conda fortran compiler for readthedocs
     file_path = os.path.realpath(__file__)
@@ -46,7 +48,7 @@ exts = [
     Extension('_rrs_decoder', ['src/RRS_Decoder_1_04.f'],
               libraries=['BUFR_1_07_1'])
 ]
-seg_ext = Extension('wxprofilers._segmentation._segmentation',
+seg_ext = Extension('_segmentation._segmentation',
                     ['wxprofilers/_segmentation/_segmentation.pyx',
                      'wxprofilers/_segmentation/mrf.c'])
 exts += cythonize([seg_ext, 'wxprofilers/_uniform.pyx'])
